@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Regras de segurança do Cloud Firestore — ByteBank TC-04
+//
+// Princípios aplicados:
+//   1. Deny-by-default: tudo é negado por padrão; apenas rotas explícitas permitem acesso.
+//   2. Isolamento por usuário: cada documento de transação contém o campo `userId`.
+//      Leitura e escrita só são permitidas quando o `userId` do documento
+//      coincide com o UID do usuário autenticado na requisição.
+//   3. Validação de escrita: ao criar ou atualizar, campos obrigatórios são verificados
+//      e o `userId` não pode ser alterado após a criação.
+//
+// Como aplicar:
+//   1. Acesse o Firebase Console → Firestore → Regras.
+//   2. Substitua o conteúdo pelas regras abaixo.
+//   3. Publique (botão "Publicar").
+//   Alternativamente, use a Firebase CLI:
+//     firebase deploy --only firestore:rules
+//
+// Índices compostos necessários (configurar em firestore.indexes.json ou no Console):
+//   Coleção: transactions
+//   Campos: userId ASC, date DESC  (consulta padrão de listagem)
+//   Campos: userId ASC, type ASC, date DESC  (filtro por tipo)
+//   Campos: userId ASC, category ASC, date DESC  (filtro por categoria)
+//   Campos: userId ASC, date ASC, date DESC  (filtro por período — usa date >= e date <=)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Bloqueia todo acesso por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Coleção de transações.
+    match /transactions/{transactionId} {
+
+      // Permite leitura apenas se o documento pertence ao usuário autenticado.
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      // Permite criação se:
+      //   - o usuário está autenticado;
+      //   - o `userId` do novo documento é o UID do usuário autenticado;
+      //   - os campos obrigatórios estão presentes.
+      allow create: if request.auth != null
+                   && request.resource.data.userId == request.auth.uid
+                   && request.resource.data.keys().hasAll([
+                        'userId', 'type', 'amount', 'category',
+                        'description', 'date', 'createdAt', 'updatedAt'
+                      ])
+                   && request.resource.data.amount is number
+                   && request.resource.data.amount > 0;
+
+      // Permite atualização se:
+      //   - o usuário está autenticado;
+      //   - o documento existente pertence ao usuário;
+      //   - o `userId` não é alterado na atualização.
+      allow update: if request.auth != null
+                   && resource.data.userId == request.auth.uid
+                   && request.resource.data.userId == request.auth.uid;
+
+      // Permite exclusão apenas pelo dono do documento.
+      allow delete: if request.auth != null
+                   && resource.data.userId == request.auth.uid;
+    }
+  }
+}

@@ -9,6 +9,7 @@ import {
   startOfMonth,
   sumByType,
 } from '../utils/dashboard-calculators';
+import { getCached, setCached, invalidateUser } from './dashboard-cache';
 
 const RECENT_COUNT = 5;
 
@@ -42,11 +43,18 @@ async function fetchAllPages(
  * Semântica:
  *   balance  = income(all) - expense(all) - investment(all)
  *   netWorth = income(all) - expense(all)
+ *
+ * Cache: resultados são armazenados em memória por 5 minutos, isolados por
+ * userId. Chame `invalidateDashboard(userId)` após mutações para forçar
+ * um refetch na próxima chamada.
  */
 async function getSummary(
   userId: string,
   referenceMonth: Date = new Date(),
 ): Promise<DashboardSummary> {
+  const cached = getCached(userId, referenceMonth);
+  if (cached) return cached;
+
   const monthStart = startOfMonth(referenceMonth);
   const monthEnd = endOfMonth(referenceMonth);
 
@@ -67,7 +75,7 @@ async function getSummary(
   const balance = calculateBalance(allTransactions);
   const netWorth = calculateNetWorth(allTransactions);
 
-  return {
+  const summary: DashboardSummary = {
     balance,
     netWorth,
     totalIncome,
@@ -85,6 +93,18 @@ async function getSummary(
     recentInvestments: monthInvestments.slice(0, RECENT_COUNT),
     referenceMonth: monthStart,
   };
+
+  setCached(userId, referenceMonth, summary);
+  return summary;
 }
 
-export const dashboardService = { getSummary };
+/**
+ * Invalida o cache do dashboard para um usuário.
+ * Deve ser chamado após criar, editar ou excluir transações para garantir
+ * que o próximo acesso ao dashboard reflita os dados mais recentes.
+ */
+export function invalidateDashboard(userId: string): void {
+  invalidateUser(userId);
+}
+
+export const dashboardService = { getSummary, invalidateDashboard };

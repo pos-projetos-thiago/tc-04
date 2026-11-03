@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, type ThemeColors } from '@/constants/theme';
 import { useAuth } from '@/src/features/auth';
+import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard.service';
 import { EmptyState } from '@/src/shared/components/empty-state';
 import { ErrorMessage } from '@/src/shared/components/error-message';
 import { LoadingSpinner } from '@/src/shared/components/loading-spinner';
@@ -113,6 +114,7 @@ export function TransactionListScreen() {
     if (!user) return;
     const success = await remove(transaction.id, user.id);
     if (success) {
+      invalidateDashboard(user.id);
       refresh();
     }
   }

@@ -11,6 +11,7 @@ import {
 } from '../utils/password-reset-diagnostics';
 import type { User } from '../types/user';
 import { AuthContext } from './auth-context';
+import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard.service';
 
 interface AuthState {
   user: User | null;
@@ -161,11 +162,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      // Invalida o cache do dashboard antes de deslogar para que dados
+      // do usuário atual não persistam em memória para a próxima sessão.
+      const currentUser = state.user;
+      if (currentUser) {
+        invalidateDashboard(currentUser.id);
+      }
       await authService.signOut();
     } catch (err) {
       dispatch({ type: 'SET_ERROR', payload: mapFirebaseError(err) });
     }
-  }, []);
+  }, [state.user]);
 
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });
