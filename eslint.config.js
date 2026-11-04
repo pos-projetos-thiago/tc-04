@@ -9,6 +9,8 @@ module.exports = defineConfig([
   {
     // ─── Regras de dependência entre camadas ─────────────────────────────────
     rules: {
+      // import/no-restricted-paths: garante que camadas de apresentação não
+      // importem diretamente da infraestrutura Firebase.
       'import/no-restricted-paths': [
         'error',
         {
@@ -31,20 +33,6 @@ module.exports = defineConfig([
           ],
         },
       ],
-
-      // react-hooks/set-state-in-effect (eslint-plugin-react-hooks v7 / React Compiler):
-      // Rejeita o padrão `useEffect(() => { void asyncFn(); }, [asyncFn])` porque
-      // `asyncFn` chama `setState` internamente, e o compilador classifica isso como
-      // "setState síncrono dentro de effect". No entanto, o `setState` ocorre apenas
-      // dentro das callbacks de uma Promise (após `await`), nunca de forma síncrona
-      // — o React já garante que batching trata atualizações assíncronas de forma eficiente.
-      // Este é o padrão documentado pela própria equipe do React para busca de dados em
-      // hooks (ver: react.dev/learn/synchronizing-with-effects).
-      // A regra tem falsos positivos para este caso de uso específico no React Compiler v7.
-      // Desativada aqui de forma consciente para os dois hooks afetados:
-      //   - src/features/dashboard/hooks/use-dashboard.ts
-      //   - src/features/transactions/hooks/use-transactions.ts
-      'react-hooks/set-state-in-effect': 'off',
     },
   },
   {

@@ -1,3 +1,11 @@
+/* eslint-disable react-hooks/set-state-in-effect --
+ * `load` e `loadMore` são useCallbacks assíncronos: setState só é chamado
+ * dentro de callbacks de Promise (após `await`), nunca de forma síncrona.
+ * A regra do React Compiler v7 (eslint-plugin-react-hooks) não distingue
+ * chamadas síncronas de assíncronas ao analisar estaticamente useEffect,
+ * produzindo um falso positivo para este padrão de busca de dados com
+ * scroll infinito.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { transactionService } from '../services/firestore-transaction.service';

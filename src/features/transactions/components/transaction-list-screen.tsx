@@ -22,6 +22,7 @@ import { useColorScheme } from '@/src/shared/hooks/use-color-scheme';
 
 import { useDeleteTransaction } from '../hooks/use-delete-transaction';
 import { useTransactionContext } from '../hooks/use-transaction-context';
+import { useTransactionWatcher } from '../hooks/use-transaction-watcher';
 import { DEFAULT_FILTER } from '../types/transaction-filter';
 import type { Transaction } from '../types/transaction';
 import { GlassIconButton } from './glass-icon-button';
@@ -76,6 +77,10 @@ export function TransactionListScreen() {
       refresh();
     }, [refresh]),
   );
+
+  // Listener reativo: detecta mudanças de transações (de qualquer dispositivo/sessão)
+  // e dispara refresh automático, sem substituir a paginação cursor-based.
+  useTransactionWatcher(user?.id ?? null, refresh);
 
   function handleEdit(transaction: Transaction) {
     router.push({

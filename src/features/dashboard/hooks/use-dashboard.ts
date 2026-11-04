@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { InteractionManager } from 'react-native';
 
 import { dashboardService } from '../services/dashboard.service';
 import type { DashboardSummary } from '../types/dashboard-summary';
@@ -55,7 +56,15 @@ export function useDashboard(
   }, [userId, monthKey]);
 
   useEffect(() => {
-    void load();
+    // InteractionManager.runAfterInteractions adia o fetch até que as animações
+    // de transição de tela do React Navigation/Expo Router terminem. Isso evita
+    // que o fetch do Firestore compita com a thread JS durante a navegação,
+    // melhorando a fluidez sem alterar o comportamento funcional.
+    // Funciona em iOS, Android e web (no web retorna imediatamente).
+    const task = InteractionManager.runAfterInteractions(() => {
+      void load();
+    });
+    return () => task.cancel();
   }, [load]);
 
   return { ...state, refresh: load };

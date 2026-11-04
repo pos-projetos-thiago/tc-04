@@ -169,7 +169,8 @@ src/
     transactions/             # Transações financeiras
       components/             # TransactionForm, TransactionListScreen
       context/                # TransactionProvider + TransactionContext
-      hooks/                  # useTransactions, useCreate/Edit/Delete
+      hooks/                  # useTransactions, useCreate/Edit/Delete,
+                              #   useTransactionWatcher (listener reativo)
       services/               # FirestoreTransactionService : ITransactionService
       types/                  # Transaction, TransactionFilter, DTOs, interfaces
   lib/
@@ -229,8 +230,9 @@ Este projeto **não configura `asyncRoutes`** no `app.json`, portanto:
 - Em desenvolvimento nativo (Expo Go): o Metro faz lazy bundling por padrão no processo de desenvolvimento (carrega módulos quando solicitados), mas isso é comportamento do servidor de desenvolvimento, não do app.
 - Em produção nativa: todo o bundle JavaScript é carregado de uma vez ao iniciar o app. Não há code splitting por rota em produção nativa no SDK 57.
 
-### O que o projeto faz
+### O que o projeto faz para otimizar carregamento
 
+- **`InteractionManager.runAfterInteractions` no dashboard:** o fetch do Firestore é adiado até que as animações de transição de navegação terminem. Isso reduz a competição pelo thread JavaScript durante a abertura da tela. Funciona em iOS, Android e web (no web a callback é chamada imediatamente). Implementado em `use-dashboard.ts`.
 - **Paginação de transações:** scroll infinito cursor-based — carrega 20 itens por vez, busca mais ao rolar.
 - **Dados do dashboard sob demanda:** `useDashboard` só busca quando o componente monta, com cache in-memory para evitar re-fetches desnecessários.
 - **Carregamento condicional por autenticação:** telas de `(tabs)` e `(auth)` não montam até o estado de autenticação ser resolvido.
@@ -250,7 +252,7 @@ Não há `React.lazy()`, `Suspense` ou `asyncRoutes` configurado neste projeto.
   - Após excluir transação (`TransactionListScreen`)
   - Ao fazer logout (`AuthProvider.signOut`)
 
-**Limitação documentada:** o cache não reage a mudanças feitas em outro dispositivo ou sessão. Após uma mutação em outro dispositivo, os dados locais podem ficar desatualizados por até 5 minutos (até o TTL expirar ou a tela receber foco novamente via `useFocusEffect`).
+**Limitação documentada:** o cache não reage a mudanças feitas em outro dispositivo ou sessão. O `useTransactionWatcher` (listener `onSnapshot`) detecta essas mudanças e invalida o cache automaticamente — mas o refresh da listagem paginada é necessário para refletir os novos dados.
 
 ---
 
@@ -258,11 +260,13 @@ Não há `React.lazy()`, `Suspense` ou `asyncRoutes` configurado neste projeto.
 
 | Mecanismo | Onde | Comportamento |
 |---|---|---|
-| `onAuthStateChanged` | `AuthProvider` | **Listener em tempo real** do Firebase Auth. Reage imediatamente a login/logout. Cleanup com `unsubscribe`. |
-| `useFocusEffect` | `DashboardScreen`, `TransactionListScreen` | **Recarga imperativa ao focar a tela.** Não é listener em tempo real — busca os dados quando a tela aparece. `hasMountedRef` evita fetch duplo no mount inicial. |
+| `onAuthStateChanged` | `AuthProvider` | **Listener em tempo real** do Firebase Auth. Reage imediatamente a login/logout em qualquer sessão. Cleanup com `unsubscribe` no `useEffect`. |
+| `useTransactionWatcher` | `TransactionListScreen` | **Listener `onSnapshot` sobre 1 documento** (`limit(1)`, `orderBy('updatedAt','desc')`). Quando qualquer transação do usuário muda (qualquer dispositivo), invalida o cache do dashboard e dispara `refresh()` automaticamente. Limpo no unmount e na troca de `userId`. |
+| `useFocusEffect` | `DashboardScreen`, `TransactionListScreen` | **Recarga imperativa ao focar a tela.** Busca os dados quando a tela aparece. `hasMountedRef` evita fetch duplo no mount inicial. |
+| `InteractionManager` | `useDashboard` | Adia o fetch do Firestore até as animações de transição terminarem. |
 | Reação ao `userId` | `TransactionProvider` | Quando o usuário muda, `useTransactions` reinicia automaticamente com o novo `userId`. |
 
-`onAuthStateChanged` e `useFocusEffect` têm comportamentos distintos: o primeiro reage sem polling, o segundo recarrega quando a tela recebe foco. Não há `onSnapshot` implementado — atualizações feitas em outro dispositivo não se refletem em tempo real.
+`onAuthStateChanged` e `useTransactionWatcher` são listeners em tempo real (reagem sem polling). `useFocusEffect` é recarga imperativa. A paginação cursor-based permanece inalterada — `useTransactionWatcher` usa `onSnapshot` apenas para detecção de mudanças, não para substituir a listagem paginada.
 
 ---
 
@@ -334,7 +338,7 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Verificação | Resultado |
 |---|---|
 | TypeScript (`npx tsc --noEmit`) | ✅ 0 erros |
-| Lint (`npx expo lint`) | ✅ 0 erros, 0 warnings (após correções de `useAnimatedValue` e supressão localizada) |
+| Lint (`npx expo lint`) | ✅ 0 erros, 0 warnings — `react-hooks/set-state-in-effect` suprimido por arquivo com justificativa nos 2 hooks afetados |
 | Build nativo | ⚠️ Não executado — requer EAS Build ou ambiente com Xcode/Android SDK |
 | Execução em dispositivo iOS/Android | ⚠️ Não realizado — requer dispositivo físico ou simulador |
 
@@ -366,9 +370,9 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Arquitetura modular | `src/features/{auth,dashboard,transactions,receipts}` com context/hooks/services/types | `src/features/*/` | ✅ Concluído |
 | State Management Patterns avançados | `AuthProvider` com `useReducer`; `TransactionProvider` com Context | `auth-provider.tsx`, `transaction-provider.tsx` | ✅ Concluído |
 | Separação apresentação / domínio / infraestrutura | Interfaces `IAuthService`, `ITransactionService`; componentes não importam Firebase diretamente | `features/*/types/*.interface.ts`, `lib/firebase/` | ✅ Concluído |
-| Lazy loading / carregamento sob demanda | Paginação cursor-based (20 itens/vez); dados dashboard sob demanda com cache. **Sem code splitting por rota em produção nativa no SDK 57** (requer opt-in `asyncRoutes`, não configurado) | `use-transactions.ts`, `dashboard.service.ts` | ⚠️ Parcial |
-| Cache para otimizar requisições | Cache in-memory no `dashboardService`, chave `userId:ano-mês`, TTL 5 min, invalidado em create/edit/delete/logout | `dashboard-cache.ts`, `dashboard.service.ts` | ✅ Concluído |
-| Programação reativa | `onAuthStateChanged` (listener real); `useFocusEffect` (recarga ao focar — não é listener em tempo real) | `auth-provider.tsx`, `dashboard-screen.tsx` | ✅ Concluído |
+| Lazy loading / carregamento sob demanda | `InteractionManager.runAfterInteractions` no dashboard adia o fetch durante animações; paginação cursor-based (20 itens/vez); carregamento condicional por autenticação. **Sem code splitting por rota em produção nativa no SDK 57** (async routes requer opt-in explícito) | `use-dashboard.ts`, `use-transactions.ts` | ⚠️ Parcial |
+| Cache para otimizar requisições | Cache in-memory no `dashboardService`, chave `userId:ano-mês`, TTL 5 min, invalidado em create/edit/delete/logout e por `useTransactionWatcher` | `dashboard-cache.ts`, `dashboard.service.ts` | ✅ Concluído |
+| Programação reativa | `onAuthStateChanged` (listener real do Auth); `useTransactionWatcher` com `onSnapshot` detecta mudanças de transações em tempo real (qualquer dispositivo), invalida cache e dispara refresh; `useFocusEffect` como recarga ao focar | `auth-provider.tsx`, `use-transaction-watcher.ts`, `transaction-list-screen.tsx` | ✅ Concluído |
 | Autenticação segura | Firebase Auth, persistência AsyncStorage, erros mapeados, guard `isFirebaseConfigured()` | `firebase-auth.service.ts`, `auth-provider.tsx` | ✅ Concluído |
 | Isolamento de dados por usuário | Regras Firestore e Storage isolam por `userId`; serviços TypeScript validam antes de chamar Firebase | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | ✅ Concluído (regras precisam ser publicadas — ver pendências) |
 | Regras Firestore completas | Create/update com validação de campos, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | ✅ Concluído (publicação pendente) |
