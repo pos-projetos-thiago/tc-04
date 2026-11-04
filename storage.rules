@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Regras de segurança do Firebase Storage — ByteBank TC-04
+//
+// Estrutura de caminhos no bucket:
+//   receipts/{userId}/{transactionId}/{filename}
+//
+// Princípios aplicados:
+//   1. Deny-by-default: tudo é negado por padrão.
+//   2. Isolamento por usuário: leitura e escrita permitidas apenas no
+//      prefixo do próprio usuário autenticado.
+//   3. Validação de tipo e tamanho: apenas imagens e PDFs; máximo 10 MB.
+//
+// Como aplicar:
+//   Firebase Console → Storage → Regras → substituir → Publicar.
+//   Ou via CLI:
+//     firebase deploy --only storage
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Bloqueia tudo por padrão.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Recibos: isolados pelo userId do caminho.
+    match /receipts/{userId}/{transactionId}/{filename} {
+
+      // Leitura: apenas o próprio usuário.
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+
+      // Escrita (upload): apenas o próprio usuário, respeitando
+      // tamanho máximo (10 MB) e tipos permitidos.
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size <= 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/(jpeg|png|webp|heic)')
+                      || request.resource.contentType == 'application/pdf';
+
+      // Exclusão: apenas o próprio usuário.
+      allow delete: if request.auth != null
+                    && request.auth.uid == userId;
+    }
+  }
+}

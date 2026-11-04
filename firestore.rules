@@ -55,10 +55,19 @@ service cloud.firestore {
       // Permite atualização se:
       //   - o usuário está autenticado;
       //   - o documento existente pertence ao usuário;
-      //   - o `userId` não é alterado na atualização.
+      //   - o `userId` não é alterado na atualização;
+      //   - os campos obrigatórios permanecem presentes após o patch;
+      //   - `amount` permanece positivo se for alterado.
       allow update: if request.auth != null
                    && resource.data.userId == request.auth.uid
-                   && request.resource.data.userId == request.auth.uid;
+                   && request.resource.data.userId == request.auth.uid
+                   && request.resource.data.keys().hasAll([
+                        'userId', 'type', 'amount', 'category',
+                        'description', 'date', 'createdAt', 'updatedAt'
+                      ])
+                   && request.resource.data.amount is number
+                   && request.resource.data.amount > 0
+                   && request.resource.data.createdAt == resource.data.createdAt;
 
       // Permite exclusão apenas pelo dono do documento.
       allow delete: if request.auth != null

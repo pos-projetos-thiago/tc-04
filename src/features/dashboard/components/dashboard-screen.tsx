@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
@@ -86,6 +86,14 @@ function createStyles(colors: ThemeColors) {
     topDivider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border,
+    },
+    // Link invisível para pré-carregamento da rota de nova transação
+    prefetchLink: {
+      position: 'absolute',
+      width: 0,
+      height: 0,
+      overflow: 'hidden',
+      opacity: 0,
     },
   });
 }
@@ -186,6 +194,13 @@ export function DashboardScreen() {
         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
       ]}
     >
+      {/*
+        Pré-carregamento da tela de nova transação.
+        O Expo Router renderiza a rota off-screen quando `prefetch` está ativo,
+        garantindo que o bundle já esteja pronto quando o usuário tocar em "+".
+        O Link não é visível (tamanho zero, sem interação).
+      */}
+      <Link href="/transactions/new" prefetch style={styles.prefetchLink} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
