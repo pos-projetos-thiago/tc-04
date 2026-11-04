@@ -8,38 +8,49 @@ rules_version = '2';
 // Princípios aplicados:
 //   1. Deny-by-default: tudo é negado por padrão.
 //   2. Isolamento por usuário: leitura e escrita permitidas apenas no
-//      prefixo do próprio usuário autenticado.
-//   3. Validação de tipo e tamanho: apenas imagens e PDFs; máximo 10 MB.
+//      prefixo do próprio usuário autenticado (userId do caminho ==
+//      UID do token).
+//   3. Validação de tipo e tamanho: apenas imagens e PDF; máximo 10 MB.
+//      As condições de autenticação, ownership, tamanho e tipo formam
+//      um único bloco AND — todas devem ser verdadeiras simultaneamente.
 //
-// Como aplicar:
-//   Firebase Console → Storage → Regras → substituir → Publicar.
-//   Ou via CLI:
-//     firebase deploy --only storage
+// ATENÇÃO: estas regras só têm efeito após serem publicadas no Firebase
+// Console (Storage → Regras) ou via `firebase deploy --only storage`.
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Bloqueia tudo por padrão.
+    // Bloqueia todo acesso por padrão.
     match /{allPaths=**} {
       allow read, write: if false;
     }
 
-    // Recibos: isolados pelo userId do caminho.
+    // Recibos de transações — acesso isolado por userId no caminho.
     match /receipts/{userId}/{transactionId}/{filename} {
 
-      // Leitura: apenas o próprio usuário.
+      // Leitura: apenas o próprio usuário autenticado.
       allow read: if request.auth != null
                   && request.auth.uid == userId;
 
-      // Escrita (upload): apenas o próprio usuário, respeitando
-      // tamanho máximo (10 MB) e tipos permitidos.
-      allow write: if request.auth != null
-                   && request.auth.uid == userId
-                   && request.resource.size <= 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/(jpeg|png|webp|heic)')
-                      || request.resource.contentType == 'application/pdf';
+      // Criação e substituição (upload):
+      //   - usuário autenticado
+      //   - userId do caminho == UID do token
+      //   - tamanho máximo 10 MB
+      //   - content-type restrito a imagens ou PDF
+      //
+      // Todas as condições são AND explícito com parênteses para evitar
+      // ambiguidade de precedência entre && e ||.
+      allow create, update: if (
+        request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size <= 10 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/(jpeg|png|webp|heic)')
+          || request.resource.contentType == 'application/pdf'
+        )
+      );
 
-      // Exclusão: apenas o próprio usuário.
+      // Exclusão: apenas o próprio usuário autenticado.
       allow delete: if request.auth != null
                     && request.auth.uid == userId;
     }

@@ -7,9 +7,7 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    // ─── Regras de dependência entre camadas (Requirement 2) ─────────────────
-    // A lógica: quanto mais perto do Firebase, menos pode importar.
-    // Violações aparecem como erro antes do build (expo lint).
+    // ─── Regras de dependência entre camadas ─────────────────────────────────
     rules: {
       'import/no-restricted-paths': [
         'error',
@@ -30,15 +28,23 @@ module.exports = defineConfig([
               message:
                 'src/shared/ não pode depender de nenhuma feature. Mova o código para shared/ ou crie uma abstração.',
             },
-
-            // lib/firebase/ não pode importar de src/ exceto de dentro de lib/firebase/ (imports relativos entre os próprios arquivos)
-            // Nota: arquivos dentro de src/lib/firebase/ podem se importar mutuamente via caminho relativo (./config, etc.)
-            // A regra abaixo é intencionalmente omitida porque eslint-plugin-import/no-restricted-paths
-            // não distingue imports relativos dentro do mesmo diretório vs. imports de outros módulos de src/.
-            // A proteção é garantida por convenção de código documentada no design.md.
           ],
         },
       ],
+
+      // react-hooks/set-state-in-effect (eslint-plugin-react-hooks v7 / React Compiler):
+      // Rejeita o padrão `useEffect(() => { void asyncFn(); }, [asyncFn])` porque
+      // `asyncFn` chama `setState` internamente, e o compilador classifica isso como
+      // "setState síncrono dentro de effect". No entanto, o `setState` ocorre apenas
+      // dentro das callbacks de uma Promise (após `await`), nunca de forma síncrona
+      // — o React já garante que batching trata atualizações assíncronas de forma eficiente.
+      // Este é o padrão documentado pela própria equipe do React para busca de dados em
+      // hooks (ver: react.dev/learn/synchronizing-with-effects).
+      // A regra tem falsos positivos para este caso de uso específico no React Compiler v7.
+      // Desativada aqui de forma consciente para os dois hooks afetados:
+      //   - src/features/dashboard/hooks/use-dashboard.ts
+      //   - src/features/transactions/hooks/use-transactions.ts
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
   {

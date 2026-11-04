@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useAnimatedValue,
   View,
 } from 'react-native';
 
@@ -84,7 +85,7 @@ export function ChartTabsContainer({
 
   const [activeTab, setActiveTab] = useState<TabId>('movements');
 
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useAnimatedValue(1);
 
   const switchTab = useCallback(
     (id: TabId) => {

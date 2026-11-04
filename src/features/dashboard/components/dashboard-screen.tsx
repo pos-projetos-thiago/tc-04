@@ -1,10 +1,11 @@
-import { Link, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   ScrollView,
   StyleSheet,
   Text,
+  useAnimatedValue,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,14 +88,6 @@ function createStyles(colors: ThemeColors) {
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border,
     },
-    // Link invisível para pré-carregamento da rota de nova transação
-    prefetchLink: {
-      position: 'absolute',
-      width: 0,
-      height: 0,
-      overflow: 'hidden',
-      opacity: 0,
-    },
   });
 }
 
@@ -136,8 +129,10 @@ export function DashboardScreen() {
     }, [refresh]),
   );
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(10)).current;
+  // useAnimatedValue é a API recomendada pelo React Compiler para Animated.Value.
+  // Substitui useRef(new Animated.Value(x)).current que acessa .current durante render.
+  const fadeAnim = useAnimatedValue(0);
+  const slideAnim = useAnimatedValue(10);
 
   useEffect(() => {
     if (!isLoading && summary) {
@@ -157,7 +152,12 @@ export function DashboardScreen() {
       fadeAnim.setValue(0);
       slideAnim.setValue(10);
     }
-  }, [isLoading, summary, fadeAnim, slideAnim]);
+    // fadeAnim e slideAnim são instâncias de Animated.Value criadas por useAnimatedValue.
+    // Sua identidade é estável entre renders (equivalente a useRef), portanto não
+    // precisam integrar o array de dependências — incluí-los causaria re-execução
+    // desnecessária do efeito sem nenhum benefício funcional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, summary]);
 
   if (isLoading && !summary) {
     return (
@@ -195,12 +195,12 @@ export function DashboardScreen() {
       ]}
     >
       {/*
-        Pré-carregamento da tela de nova transação.
-        O Expo Router renderiza a rota off-screen quando `prefetch` está ativo,
-        garantindo que o bundle já esteja pronto quando o usuário tocar em "+".
-        O Link não é visível (tamanho zero, sem interação).
+        Sem prefetch de rota aqui: async routes em nativo são experimentais
+        e não se aplicam a builds de produção no SDK 57. O <Link prefetch>
+        montaria a tela de nova transação off-screen com limitações documentadas
+        (sem router imperativo, sem setOptions). Lazy loading nativo é gerenciado
+        pelo Metro em desenvolvimento; em produção todo o bundle já está disponível.
       */}
-      <Link href="/transactions/new" prefetch style={styles.prefetchLink} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
