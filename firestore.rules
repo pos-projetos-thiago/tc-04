@@ -22,7 +22,7 @@ rules_version = '2';
 //   Campos: userId ASC, date DESC  (consulta padrão de listagem)
 //   Campos: userId ASC, type ASC, date DESC  (filtro por tipo)
 //   Campos: userId ASC, category ASC, date DESC  (filtro por categoria)
-//   Campos: userId ASC, date ASC, date DESC  (filtro por período — usa date >= e date <=)
+//   O filtro por período usa o mesmo índice userId ASC, date DESC da consulta padrão.
 
 service cloud.firestore {
   match /databases/{database}/documents {

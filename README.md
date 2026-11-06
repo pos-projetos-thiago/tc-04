@@ -1,9 +1,9 @@
 # ByteBank — Gerenciamento Financeiro Pessoal
 
-![React Native](https://img.shields.io/badge/React_Native-0.86.3-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![React Native](https://img.shields.io/badge/React_Native-0.88.1-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Firebase](https://img.shields.io/badge/Firebase_SDK-12-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
-![Expo](https://img.shields.io/badge/Expo_SDK-57-000020?style=for-the-badge&logo=expo&logoColor=white)
+![Expo](https://img.shields.io/badge/Expo_SDK-58-000020?style=for-the-badge&logo=expo&logoColor=white)
 ![Node](https://img.shields.io/badge/Node.js-%E2%89%A522.13-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 
 Aplicação mobile de gerenciamento financeiro desenvolvida com React Native, Expo e Firebase como parte do **Tech Challenge — Fase 4** da pós-graduação PosTech FIAP (Front-End Engineering).
@@ -31,7 +31,7 @@ Esta fase evoluiu a aplicação da Fase 3 incorporando: arquitetura modular com 
 
 ## Pré-requisitos
 
-- **Node.js 22.13** ou superior (Expo SDK 57 requer Node ≥ 22.13.x — consulte a [tabela oficial de compatibilidade](https://docs.expo.dev/versions/v57.0.0/))
+- **Node.js 22.13+ (linha 22), 24.3+ (linha 24) ou 26+**, conforme os requisitos do Expo SDK 58. Consulte a [tabela oficial de compatibilidade](https://docs.expo.dev/versions/v58.0.0/).
 - npm
 - Aplicativo **Expo Go** instalado no dispositivo (iOS ou Android)
 - Conta no [Firebase Console](https://console.firebase.google.com)
@@ -88,7 +88,6 @@ Ou crie manualmente no Console (Firestore → Índices):
 | `userId` ASC, `date` DESC | Composto | Listagem padrão |
 | `userId` ASC, `type` ASC, `date` DESC | Composto | Filtro por tipo |
 | `userId` ASC, `category` ASC, `date` DESC | Composto | Filtro por categoria |
-| `userId` ASC, `date` ASC (range) | Composto | Filtro por período |
 
 ---
 
@@ -129,7 +128,7 @@ npm start
 
 Inicia o Metro em modo **LAN** (`--lan --clear`). Recomendado para dispositivos físicos na mesma rede Wi-Fi.
 
-> **⚠️ Não use `--tunnel` com Expo SDK 57 + iOS**  
+> **⚠️ No iOS, prefira LAN em vez de `--tunnel`**
 > O ATS do iOS bloqueia conexões HTTP geradas pelo modo tunnel com URLs `*.exp.direct`. Use LAN ou USB.
 
 ### Modos disponíveis
@@ -218,29 +217,28 @@ Componentes de apresentação não importam diretamente de `lib/firebase`.
 
 ---
 
-## Carregamento de rotas (lazy loading)
+## Carregamento de rotas e dados (lazy loading)
 
-### Comportamento real no Expo SDK 57
+### Comportamento real no Expo SDK 58
 
-O Expo Router oferece **async routes** (code splitting por rota), mas no SDK 57:
+O Expo Router oferece **async routes** (code splitting por rota):
 
-- **Web:** requer opt-in explícito via `asyncRoutes` no `app.json`
-- **Nativo (iOS/Android):** async routes são **experimentais, apenas em desenvolvimento** e **não se aplicam a builds de produção**
+- **Web:** async routes são estáveis e ativadas por padrão no SDK 58; o code splitting por rota também se aplica à produção web.
+- **Nativo (iOS/Android):** async routes continuam experimentais e desativadas por padrão; code splitting de rotas em produção nativa não está disponível.
 
-Este projeto **não configura `asyncRoutes`** no `app.json`, portanto:
+Este projeto não define `asyncRoutes` explicitamente no `app.json`; usa o padrão do Expo Router no SDK 58.
 
-- Em desenvolvimento nativo (Expo Go): o Metro faz lazy bundling por padrão no processo de desenvolvimento (carrega módulos quando solicitados), mas isso é comportamento do servidor de desenvolvimento, não do app.
-- Em produção nativa: todo o bundle JavaScript é carregado de uma vez ao iniciar o app. Não há code splitting por rota em produção nativa no SDK 57.
+Em produção nativa, o bundle JavaScript é carregado ao iniciar o app. A estratégia de carregamento sob demanda usada pelo projeto é aplicada aos dados da lista de transações.
 
 ### O que o projeto faz para otimizar carregamento
 
-- **`InteractionManager.runAfterInteractions` no dashboard:** o fetch do Firestore é adiado até que as animações de transição de navegação terminem. Isso reduz a competição pelo thread JavaScript durante a abertura da tela. Funciona em iOS, Android e web (no web a callback é chamada imediatamente). Implementado em `use-dashboard.ts`.
+- **`requestIdleCallback` no dashboard:** substitui o `InteractionManager`, removido no React Native 0.87. O fetch do Firestore é agendado quando a thread JavaScript fica ociosa, com timeout de 1 segundo e cancelamento no unmount. Implementado em `use-dashboard.ts`.
 - **Paginação de transações:** scroll infinito cursor-based — carrega 20 itens por vez, busca mais ao rolar.
 - **Pré-carregamento da próxima página (`prefetchNext`):** logo após a primeira página ser exibida, `use-transactions.ts` busca silenciosamente a segunda em background e a armazena em `prefetchRef`. Quando o usuário aciona `loadMore`, o resultado já está disponível — sem nova requisição ao Firestore. O padrão se repete a cada página carregada.
 - **Dados do dashboard sob demanda:** `useDashboard` só busca quando o componente monta, com cache in-memory para evitar re-fetches desnecessários.
 - **Carregamento condicional por autenticação:** telas de `(tabs)` e `(auth)` não montam até o estado de autenticação ser resolvido.
 
-Não há `React.lazy()`, `Suspense` ou `asyncRoutes` configurado neste projeto.
+O projeto não usa `React.lazy()` nem `Suspense` explicitamente. O comportamento padrão de async routes do SDK 58 se aplica à web; não há code splitting de rotas em produção nativa.
 
 ---
 
@@ -255,7 +253,7 @@ Não há `React.lazy()`, `Suspense` ou `asyncRoutes` configurado neste projeto.
   - Após excluir transação (`TransactionListScreen`)
   - Ao fazer logout (`AuthProvider.signOut`)
 
-**Limitação documentada:** o cache não reage a mudanças feitas em outro dispositivo ou sessão. O `useTransactionWatcher` (listener `onSnapshot`) detecta essas mudanças e invalida o cache automaticamente — mas o refresh da listagem paginada é necessário para refletir os novos dados.
+**Limitação documentada:** o cache não observa mudanças remotas diretamente. O `useTransactionWatcher` invalida o cache ao detectar criação, edição ou exclusão da transação mais recente; uma exclusão remota de uma transação antiga pode não ser detectada enquanto a tela permanece aberta. Ao voltar à tela, `useFocusEffect` atualiza a lista.
 
 ---
 
@@ -266,7 +264,7 @@ Não há `React.lazy()`, `Suspense` ou `asyncRoutes` configurado neste projeto.
 | `onAuthStateChanged` | `AuthProvider` | **Listener em tempo real** do Firebase Auth. Reage imediatamente a login/logout em qualquer sessão. Cleanup com `unsubscribe` no `useEffect`. |
 | `useTransactionWatcher` | `TransactionListScreen` | **Listener `onSnapshot` sobre 1 documento** (`limit(1)`, `orderBy('updatedAt','desc')`). Detecta criações e edições (sempre vão ao topo por `updatedAt = now`) e exclusão do documento mais recente. **Não detecta exclusão de documentos não-topo** — nesses casos o `useFocusEffect` cobre o refresh ao retornar à tela. Limpo no unmount e na troca de `userId`. |
 | `useFocusEffect` | `DashboardScreen`, `TransactionListScreen` | **Recarga imperativa ao focar a tela.** Busca os dados no momento em que a tela recebe foco (ex.: ao voltar de outra tela). `hasMountedRef` evita fetch duplo no mount inicial. **Não reage a mudanças remotas enquanto a tela permanece aberta** — nesse intervalo, o `useTransactionWatcher` assume esse papel para criações e edições. |
-| `InteractionManager` | `useDashboard` | Adia o fetch do Firestore até as animações de transição terminarem. |
+| `requestIdleCallback` | `useDashboard` | Agenda o fetch para um período ocioso da thread JavaScript, com timeout e cancelamento no unmount. |
 | Reação ao `userId` | `TransactionProvider` | Quando o usuário muda, `useTransactions` reinicia automaticamente com o novo `userId`. |
 
 `onAuthStateChanged` e `useTransactionWatcher` são listeners em tempo real (reagem sem polling). `useFocusEffect` é recarga imperativa e serve como fallback universal. A paginação cursor-based permanece inalterada — `useTransactionWatcher` usa `onSnapshot` apenas para detecção de mudanças, não para substituir a listagem paginada.
@@ -320,17 +318,21 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 
 | Tecnologia | Versão | Uso |
 |---|---|---|
-| React Native | 0.86.3 | Base da aplicação mobile |
-| Expo SDK | 57 | Ferramental, câmera, storage, router |
-| TypeScript | ~5.9 | Tipagem estática |
-| Expo Router | ~57.0.0 | Roteamento file-based |
+| React Native | 0.88.1 | Base da aplicação mobile |
+| Expo SDK | 58 | Ferramental, câmera, storage, router |
+| TypeScript | ~6.0.3 | Tipagem estática |
+| Expo Router | ~58.0.0 | Roteamento file-based |
 | Firebase Authentication | SDK 12 | Login, registro, recuperação de senha |
 | Cloud Firestore | SDK 12 | Banco de dados |
 | Firebase Storage | SDK 12 | Upload de recibos |
 | Firebase AI Logic | SDK 12 | Extração de dados (Gemini) |
-| React Native Reanimated | 4.5.1 | Animações |
-| React Native Gesture Handler | ~2.32.0 | Gestos nativos |
-| @shopify/react-native-skia | 2.6.2 | Canvas para gráficos |
+| React Native Reanimated | 4.7.1 | Animações |
+| React Native Gesture Handler | ~3.3.0 | Gestos nativos |
+| React Native Worklets | 0.13.0 | Execução de worklets para animações |
+| React Native SVG | 15.16.0 | Renderização de SVG |
+| React Native Safe Area Context | ~5.11.0 | Áreas seguras em dispositivos |
+| React Native Screens | ~4.30.0 | Telas nativas para navegação |
+| @shopify/react-native-skia | 2.14.0 | Canvas para gráficos |
 | expo-skia-charts | ^0.5.0 | Gráficos donut |
 | @react-native-async-storage/async-storage | 2.2.0 | Persistência de sessão Firebase Auth |
 
@@ -340,12 +342,14 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 
 | Verificação | Resultado |
 |---|---|
-| TypeScript (`npx tsc --noEmit`) | ✅ 0 erros |
-| Lint (`npx expo lint`) | ✅ 0 erros, 0 warnings — `react-hooks/set-state-in-effect` suprimido por arquivo com justificativa nos 2 hooks afetados |
+| Expo Doctor (`npx expo-doctor`) | ✅ 20/20 verificações passaram após o alinhamento do SDK 58 |
+| TypeScript (`npx tsc --noEmit`) | ✅ 0 erros após a migração para SDK 58 |
+| Lint (`npx expo lint`) | ✅ 0 erros, 0 warnings |
+| Expo Go em iPhone | ✅ Aplicativo abriu e foi testado após a migração para SDK 58 |
 | Build nativo | ⚠️ Não executado — requer EAS Build ou ambiente com Xcode/Android SDK |
-| Execução em dispositivo iOS/Android | ⚠️ Não realizado — requer dispositivo físico ou simulador |
+| Auditoria de dependências | ⚠️ `npm install` reportou 20 avisos de vulnerabilidade (12 moderados, 7 altos e 1 crítico); ainda não triados |
 
-> Build nativo e testes em dispositivo não foram realizados neste ambiente e permanecem como pendências externas.
+> O teste no iPhone confirmou que o app abre no Expo Go. Um build nativo de produção ainda não foi gerado.
 
 ---
 
@@ -373,13 +377,13 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Arquitetura modular | `src/features/{auth,dashboard,transactions,receipts}` com context/hooks/services/types | `src/features/*/` | ✅ Concluído |
 | State Management Patterns avançados | `AuthProvider` com `useReducer`; `TransactionProvider` com Context | `auth-provider.tsx`, `transaction-provider.tsx` | ✅ Concluído |
 | Separação apresentação / domínio / infraestrutura | Interfaces `IAuthService`, `ITransactionService`; componentes não importam Firebase diretamente | `features/*/types/*.interface.ts`, `lib/firebase/` | ✅ Concluído |
-| Lazy loading / carregamento sob demanda | `InteractionManager.runAfterInteractions` no dashboard adia o fetch durante animações; paginação cursor-based (20 itens/vez); **pré-carregamento da próxima página** em background (`prefetchNext` em `use-transactions.ts` — a página N+1 é buscada imediatamente após a página N ser exibida, sem nova requisição quando o usuário aciona scroll); carregamento condicional por autenticação. **Sem code splitting por rota em produção nativa no SDK 57** (async routes requer opt-in explícito) | `use-dashboard.ts`, `use-transactions.ts` | ✅ Concluído |
+| Lazy loading / carregamento sob demanda | Paginação cursor-based (20 itens/vez), pré-carregamento em background da próxima página (`prefetchNext`) e carregamento condicional por autenticação. `requestIdleCallback` agenda o fetch do dashboard quando a thread fica ociosa. No SDK 58, async routes são padrão na web; code splitting nativo de produção não está disponível | `use-dashboard.ts`, `use-transactions.ts` | ✅ Estratégias de dados implementadas; limitação nativa documentada |
 | Cache para otimizar requisições | Cache in-memory no `dashboardService`, chave `userId:ano-mês`, TTL 5 min, invalidado em create/edit/delete/logout e por `useTransactionWatcher` | `dashboard-cache.ts`, `dashboard.service.ts` | ✅ Concluído |
 | Programação reativa | `onAuthStateChanged` (listener real do Auth); `useTransactionWatcher` com `onSnapshot` detecta criações, edições e exclusões do documento mais recente em tempo real (qualquer dispositivo), invalida cache e dispara refresh; exclusões de documentos não-topo são cobertas pelo `useFocusEffect`; `useFocusEffect` como recarga ao focar | `auth-provider.tsx`, `use-transaction-watcher.ts`, `transaction-list-screen.tsx` | ✅ Concluído (com limitação documentada no watcher) |
 | Autenticação segura | Firebase Auth, persistência AsyncStorage, erros mapeados, guard `isFirebaseConfigured()` | `firebase-auth.service.ts`, `auth-provider.tsx` | ✅ Concluído |
-| Isolamento de dados por usuário | Regras Firestore e Storage isolam por `userId`; serviços TypeScript validam antes de chamar Firebase | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | ✅ Concluído (regras precisam ser publicadas — ver pendências) |
-| Regras Firestore completas | Create/update com validação de campos, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | ✅ Concluído (publicação pendente) |
-| Regras Storage completas | `create`/`update` separados de `delete`; condições de autenticação, ownership, tamanho e tipo em AND explícito com `||` parentizado para tipos | `storage.rules` | ✅ Concluído (publicação pendente) |
+| Isolamento de dados por usuário | Regras Firestore e Storage isolam por `userId`; serviços TypeScript validam antes de chamar Firebase | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | ✅ Regras publicadas no Firebase `tc03-fiap` |
+| Regras Firestore completas | Create/update com validação de campos, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | ✅ Publicadas no Firebase |
+| Regras Storage completas | `create`/`update` separados de `delete`; autenticação, ownership, limite de 10 MB e tipos permitidos | `storage.rules` | ✅ Publicadas no Firebase |
 | Criptografia de dados sensíveis | Firebase criptografa em repouso e em trânsito (infraestrutura Google Cloud). Sem criptografia client-side adicional — explicação na seção Segurança | Infraestrutura Firebase | ⚠️ Parcial |
 | Credenciais fora do repositório | `.env` no `.gitignore`; nenhuma credencial em commits | `.gitignore`, `.env.example` | ✅ Concluído |
 | README com tecnologias e passo a passo | Este arquivo | `README.md` | ✅ Concluído |
@@ -391,9 +395,6 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 
 | Pendência | Instrução |
 |---|---|
-| **Publicar `firestore.rules`** | Firebase Console → Firestore → Regras → Publicar, ou `firebase deploy --only firestore:rules` |
-| **Publicar `storage.rules`** | Firebase Console → Storage → Regras → Publicar, ou `firebase deploy --only storage` |
-| **Implantar índices** (`firestore.indexes.json`) | `firebase deploy --only firestore:indexes` — inclui o índice `userId ASC, updatedAt DESC` necessário para o `useTransactionWatcher` |
 | Gravar vídeo demonstrativo | Usar o roteiro acima; máximo 5 min |
-| Teste em dispositivo físico | Requer Expo Go em iOS/Android — não realizado neste ambiente |
-| Build de produção | Não gerado — requer EAS Build ou `npx expo export` |
+| Investigar os avisos de dependências | Revisar `npm audit` e corrigir vulnerabilidades aplicáveis sem usar `npm audit fix --force` automaticamente |
+| Build de produção (opcional) | Não gerado — requer EAS Build ou `npx expo export` |
