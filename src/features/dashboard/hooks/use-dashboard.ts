@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import { InteractionManager } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { dashboardService } from '../services/dashboard.service';
 import type { DashboardSummary } from '../types/dashboard-summary';
@@ -33,6 +32,10 @@ export function useDashboard(
     ? `${referenceMonth.getUTCFullYear()}-${referenceMonth.getUTCMonth()}`
     : 'current';
 
+  // Ref para rastrear se o componente ainda está montado, evitando setState
+  // após desmontagem quando o timer dispara.
+  const mountedRef = useRef(true);
+
   const load = useCallback(async () => {
     if (!userId) return;
 
@@ -44,27 +47,30 @@ export function useDashboard(
 
     try {
       const summary = await dashboardService.getSummary(userId, referenceMonth);
-      setState({ summary, isLoading: false, error: null });
+      if (mountedRef.current) {
+        setState({ summary, isLoading: false, error: null });
+      }
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Não foi possível carregar o resumo financeiro.';
-      setState({ summary: null, isLoading: false, error: message });
+      if (mountedRef.current) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível carregar o resumo financeiro.';
+        setState({ summary: null, isLoading: false, error: message });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, monthKey]);
 
   useEffect(() => {
-    // InteractionManager.runAfterInteractions adia o fetch até que as animações
-    // de transição de tela do React Navigation/Expo Router terminem. Isso evita
-    // que o fetch do Firestore compita com a thread JS durante a navegação,
-    // melhorando a fluidez sem alterar o comportamento funcional.
-    // Funciona em iOS, Android e web (no web retorna imediatamente).
-    const task = InteractionManager.runAfterInteractions(() => {
-      void load();
-    });
-    return () => task.cancel();
+    mountedRef.current = true;
+    // RN 0.87 removeu InteractionManager; requestIdleCallback agenda o fetch
+    // quando a thread JS estiver ociosa e o timeout evita atraso excessivo.
+    const id = requestIdleCallback(() => { void load(); }, { timeout: 1000 });
+    return () => {
+      mountedRef.current = false;
+      cancelIdleCallback(id);
+    };
   }, [load]);
 
   return { ...state, refresh: load };

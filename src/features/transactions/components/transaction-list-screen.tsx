@@ -230,7 +230,7 @@ export function TransactionListScreen() {
                   : 'Toque no botão + para adicionar sua primeira transação.'
               }
             />
-          ) : null
+          ) : undefined
         }
         style={styles.list}
         contentContainerStyle={

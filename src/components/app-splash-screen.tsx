@@ -6,7 +6,12 @@ import { useColorScheme } from '@/src/shared/hooks/use-color-scheme';
 
 const LOGO_WIDTH = 200;
 const LOGO_HEIGHT = Math.round((LOGO_WIDTH * 395) / 373);
-const logoUri = Image.resolveAssetSource(require('@/assets/images/logo.svg')).uri;
+
+// resolveAssetSource pode retornar undefined no RN 0.88 se o asset ainda
+// não estiver registrado no momento da avaliação do módulo. O fallback
+// vazio previne o crash; SvgUri ignora silenciosamente uri=''.
+const logoSource = Image.resolveAssetSource(require('@/assets/images/logo.svg'));
+const logoUri: string = logoSource?.uri ?? '';
 
 /**
  * Splash screen customizada do Byte Bank.

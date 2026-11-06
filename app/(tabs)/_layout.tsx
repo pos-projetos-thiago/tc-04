@@ -29,7 +29,11 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="chart.bar.fill" color={color} />
+            <IconSymbol
+              size={26}
+              name="chart.bar.fill"
+              color={typeof color === 'string' ? color : Colors[colorScheme].tint}
+            />
           ),
         }}
       />
@@ -38,7 +42,11 @@ export default function TabLayout() {
         options={{
           title: 'Transações',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="list.bullet" color={color} />
+            <IconSymbol
+              size={26}
+              name="list.bullet"
+              color={typeof color === 'string' ? color : Colors[colorScheme].tint}
+            />
           ),
         }}
       />
