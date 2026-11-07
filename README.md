@@ -347,7 +347,7 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Lint (`npx expo lint`) | ✅ 0 erros, 0 warnings |
 | Expo Go em iPhone | ✅ Aplicativo abriu e foi testado após a migração para SDK 58 |
 | Build nativo | ⚠️ Não executado — requer EAS Build ou ambiente com Xcode/Android SDK |
-| Auditoria de dependências | ⚠️ `npm install` reportou 20 avisos de vulnerabilidade (12 moderados, 7 altos e 1 crítico); ainda não triados |
+| Auditoria de dependências | ✅ Após atualizações compatíveis, `npm audit` reporta 12 moderados, 0 altos e 0 críticos; `npm audit --omit=dev` reporta 5 moderados, 0 altos e 0 críticos. Os moderados restantes vêm da cadeia de ferramentas do Expo SDK 58 e não foram forçados a uma versão antiga do Expo |
 
 > O teste no iPhone confirmou que o app abre no Expo Go. Um build nativo de produção ainda não foi gerado.
 
@@ -396,5 +396,5 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Pendência | Instrução |
 |---|---|
 | Gravar vídeo demonstrativo | Usar o roteiro acima; máximo 5 min |
-| Investigar os avisos de dependências | Revisar `npm audit` e corrigir vulnerabilidades aplicáveis sem usar `npm audit fix --force` automaticamente |
+| Reavaliar avisos moderados de dependências | Acompanhar correções compatíveis do Expo SDK 58; não usar `npm audit fix --force`, pois ele propõe rebaixar o Expo para SDK 52 |
 | Build de produção (opcional) | Não gerado — requer EAS Build ou `npx expo export` |
