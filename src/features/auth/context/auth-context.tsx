@@ -7,6 +7,8 @@ export interface AuthContextValue {
   user: User | null;
   /** `true` enquanto o estado inicial de autenticação está sendo resolvido. */
   isLoading: boolean;
+  /** Informa se o adaptador de autenticação está configurado. */
+  isConfigured: boolean;
   /** Mensagem de erro da última operação de auth, ou `null`. */
   error: string | null;
   signIn(email: string, password: string): Promise<void>;

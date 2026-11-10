@@ -8,6 +8,12 @@ import type { TransactionFilter } from './transaction-filter';
  * sem alterar nenhum hook consumidor.
  */
 export interface ITransactionService {
+  watchLatestChange(
+    userId: string,
+    onChanged: () => void,
+    onError: (error: Error) => void,
+  ): () => void;
+
   getLifetimeTotals(userId: string): Promise<{
     income: number;
     expense: number;

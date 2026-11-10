@@ -4,10 +4,14 @@ import { useAuth } from '@/src/features/auth';
 
 import { useTransactions } from '../hooks/use-transactions';
 import { DEFAULT_FILTER, type TransactionFilter } from '../types/transaction-filter';
+import type { ITransactionService } from '../types/transaction-service.interface';
+import type { IReceiptService } from '@/src/features/receipts/types/receipt-service.interface';
 import { TransactionContext } from './transaction-context';
 
 interface TransactionProviderProps {
   children: React.ReactNode;
+  service: ITransactionService;
+  receiptService: IReceiptService;
 }
 
 /**
@@ -23,7 +27,7 @@ interface TransactionProviderProps {
  * Colocado dentro do `AuthProvider` no _layout.tsx para que `useAuth()`
  * sempre resolva corretamente.
  */
-export function TransactionProvider({ children }: TransactionProviderProps) {
+export function TransactionProvider({ children, service, receiptService }: TransactionProviderProps) {
   const { user } = useAuth();
 
   const [filter, setFilterState] = useState<TransactionFilter>(DEFAULT_FILTER);
@@ -36,7 +40,7 @@ export function TransactionProvider({ children }: TransactionProviderProps) {
     error,
     refresh,
     loadMore,
-  } = useTransactions(user?.id ?? null, filter);
+  } = useTransactions(user?.id ?? null, service, filter);
 
   /**
    * Atualiza o filtro.
@@ -49,6 +53,8 @@ export function TransactionProvider({ children }: TransactionProviderProps) {
 
   const value = useMemo(
     () => ({
+      service,
+      receiptService,
       transactions,
       isLoading,
       isLoadingMore,
@@ -59,7 +65,7 @@ export function TransactionProvider({ children }: TransactionProviderProps) {
       refresh,
       loadMore,
     }),
-    [transactions, isLoading, isLoadingMore, hasMore, error, filter, setFilter, refresh, loadMore],
+    [service, receiptService, transactions, isLoading, isLoadingMore, hasMore, error, filter, setFilter, refresh, loadMore],
   );
 
   return (

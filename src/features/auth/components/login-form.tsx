@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 
 import { Colors, type ThemeColors } from '@/constants/theme';
-import { isFirebaseConfigured } from '@/src/lib/firebase/config';
 import { useColorScheme } from '@/src/shared/hooks/use-color-scheme';
 import { validateEmail, validatePassword } from '@/src/shared/utils/validators';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +24,7 @@ interface FieldError {
 }
 
 export function LoginForm() {
-  const { signIn, isLoading, error, clearError } = useAuth();
+  const { signIn, isLoading, error, clearError, isConfigured } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -76,7 +75,7 @@ export function LoginForm() {
           <Text style={s.subtitle}>Entre na sua conta para continuar</Text>
         </View>
 
-        {!isFirebaseConfigured() ? (
+        {!isConfigured ? (
           <View style={s.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Text style={s.errorBannerText}>
               Firebase não configurado. Crie o arquivo .env com EXPO_PUBLIC_FIREBASE_* (copie de

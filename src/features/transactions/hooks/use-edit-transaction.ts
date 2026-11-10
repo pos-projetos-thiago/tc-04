@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { transactionService } from '../services/firestore-transaction.service';
+import { useTransactionContext } from './use-transaction-context';
 import type { Transaction, UpdateTransactionInput } from '../types/transaction';
 
 interface UseEditTransactionResult {
@@ -15,6 +15,7 @@ interface UseEditTransactionResult {
  * Retorna a transação atualizada em caso de sucesso, ou `null` em caso de erro.
  */
 export function useEditTransaction(): UseEditTransactionResult {
+  const { service } = useTransactionContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +29,7 @@ export function useEditTransaction(): UseEditTransactionResult {
       setError(null);
 
       try {
-        const transaction = await transactionService.update(id, userId, data);
+        const transaction = await service.update(id, userId, data);
         return transaction;
       } catch (err) {
         const message =
@@ -39,7 +40,7 @@ export function useEditTransaction(): UseEditTransactionResult {
         setIsSubmitting(false);
       }
     },
-    [],
+    [service],
   );
 
   const clearError = useCallback(() => setError(null), []);

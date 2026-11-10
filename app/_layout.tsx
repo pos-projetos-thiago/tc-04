@@ -12,7 +12,10 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/src/shared/hooks/use-color-scheme';
 import { AuthProvider } from '@/src/features/auth';
+import { authService } from '@/src/features/auth/services/firebase-auth.service';
 import { TransactionProvider } from '@/src/features/transactions';
+import { transactionService } from '@/src/features/transactions/services/firestore-transaction.service';
+import { firebaseReceiptService } from '@/src/features/receipts/services/firebase-receipt.service';
 import { AppSplashScreen } from '@/src/components/app-splash-screen';
 
 // Impede que a splash screen nativa seja ocultada automaticamente.
@@ -56,9 +59,9 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
+    <AuthProvider service={authService}>
       {/* TransactionProvider dentro do AuthProvider para que useAuth() resolva corretamente */}
-      <TransactionProvider>
+      <TransactionProvider service={transactionService} receiptService={firebaseReceiptService}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />

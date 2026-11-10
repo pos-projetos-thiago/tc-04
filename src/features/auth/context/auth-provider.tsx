@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useReducer } from 'react';
 
-import { authService } from '../services/firebase-auth.service';
-import { isFirebaseConfigured } from '@/src/lib/firebase/config';
 import {
   describeOobCode,
   extractFirebaseErrorDetails,
@@ -10,6 +8,7 @@ import {
   PASSWORD_RESET_DIAGNOSTICS_ENABLED,
 } from '../utils/password-reset-diagnostics';
 import type { User } from '../types/user';
+import type { IAuthService } from '../types/auth-service.interface';
 import { AuthContext } from './auth-context';
 import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard-service.instance';
 
@@ -48,20 +47,21 @@ const initialState: AuthState = {
 
 interface AuthProviderProps {
   children: React.ReactNode;
+  service: IAuthService;
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children, service }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChanged((user) => {
+    const unsubscribe = service.onAuthStateChanged((user) => {
       dispatch({ type: 'SET_USER', payload: user });
     });
     return unsubscribe;
-  }, []);
+  }, [service]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!isFirebaseConfigured()) {
+    if (!service.isConfigured()) {
       dispatch({
         type: 'SET_ERROR',
         payload:
@@ -71,14 +71,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      await authService.signIn(email, password);
+      await service.signIn(email, password);
     } catch (err) {
       dispatch({ type: 'SET_ERROR', payload: mapFirebaseError(err) });
     }
-  }, []);
+  }, [service]);
 
   const signUp = useCallback(async (email: string, password: string, name: string) => {
-    if (!isFirebaseConfigured()) {
+    if (!service.isConfigured()) {
       dispatch({
         type: 'SET_ERROR',
         payload:
@@ -88,15 +88,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const user = await authService.signUp(email, password, name);
+      const user = await service.signUp(email, password, name);
       dispatch({ type: 'SET_USER', payload: user });
     } catch (err) {
       dispatch({ type: 'SET_ERROR', payload: mapFirebaseError(err) });
     }
-  }, []);
+  }, [service]);
 
   const sendPasswordResetEmail = useCallback(async (email: string): Promise<boolean> => {
-    if (!isFirebaseConfigured()) {
+    if (!service.isConfigured()) {
       dispatch({
         type: 'SET_ERROR',
         payload:
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      await authService.sendPasswordResetEmail(email);
+      await service.sendPasswordResetEmail(email);
       dispatch({ type: 'SET_LOADING', payload: false });
       return true;
     } catch (err) {
@@ -117,10 +117,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       dispatch({ type: 'SET_ERROR', payload: mapFirebaseError(err) });
       return false;
     }
-  }, []);
+  }, [service]);
 
   const verifyPasswordResetCode = useCallback(async (oobCode: string): Promise<string> => {
-    if (!isFirebaseConfigured()) {
+    if (!service.isConfigured()) {
       throw new Error(
         'Firebase não configurado. Crie o arquivo .env com EXPO_PUBLIC_FIREBASE_* e reinicie o Expo.',
       );
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
 
     try {
-      const email = await authService.verifyPasswordResetCode(oobCode);
+      const email = await service.verifyPasswordResetCode(oobCode);
       logPasswordResetDiagnostic('auth-provider:verify-sucesso', {
         emailDomain: email.includes('@') ? email.split('@')[1] : null,
         ...describeOobCode(oobCode),
@@ -144,20 +144,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       throw new Error(mapFirebaseError(err));
     }
-  }, []);
+  }, [service]);
 
   const confirmPasswordReset = useCallback(async (oobCode: string, newPassword: string) => {
-    if (!isFirebaseConfigured()) {
+    if (!service.isConfigured()) {
       throw new Error(
         'Firebase não configurado. Crie o arquivo .env com EXPO_PUBLIC_FIREBASE_* e reinicie o Expo.',
       );
     }
     try {
-      await authService.confirmPasswordReset(oobCode, newPassword);
+      await service.confirmPasswordReset(oobCode, newPassword);
     } catch (err) {
       throw new Error(mapFirebaseError(err));
     }
-  }, []);
+  }, [service]);
 
   const signOut = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -168,11 +168,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (currentUser) {
         invalidateDashboard(currentUser.id);
       }
-      await authService.signOut();
+      await service.signOut();
     } catch (err) {
       dispatch({ type: 'SET_ERROR', payload: mapFirebaseError(err) });
     }
-  }, [state.user]);
+  }, [service, state.user]);
 
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });
@@ -182,6 +182,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       user: state.user,
       isLoading: state.isLoading,
+      isConfigured: service.isConfigured(),
       error: state.error,
       signIn,
       signUp,
@@ -194,6 +195,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [
       state.user,
       state.isLoading,
+      service,
       state.error,
       signIn,
       signUp,

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { transactionService } from '../services/firestore-transaction.service';
+import { useTransactionContext } from './use-transaction-context';
 import type { CreateTransactionInput, Transaction } from '../types/transaction';
 
 interface UseCreateTransactionResult {
@@ -15,6 +15,7 @@ interface UseCreateTransactionResult {
  * Retorna a transação criada em caso de sucesso, ou `null` em caso de erro.
  */
 export function useCreateTransaction(): UseCreateTransactionResult {
+  const { service } = useTransactionContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +25,7 @@ export function useCreateTransaction(): UseCreateTransactionResult {
       setError(null);
 
       try {
-        const transaction = await transactionService.create(data.userId, data);
+        const transaction = await service.create(data.userId, data);
         return transaction;
       } catch (err) {
         const message =
@@ -35,7 +36,7 @@ export function useCreateTransaction(): UseCreateTransactionResult {
         setIsSubmitting(false);
       }
     },
-    [],
+    [service],
   );
 
   const clearError = useCallback(() => setError(null), []);

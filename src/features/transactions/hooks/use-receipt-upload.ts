@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import { uploadAttachment } from '@/src/lib/firebase/storage-service';
 import type { SelectedAttachment } from '@/src/features/receipts/types/selected-attachment';
+import { useTransactionContext } from './use-transaction-context';
 
 interface UseReceiptUploadResult {
   /**
@@ -22,6 +22,7 @@ interface UseReceiptUploadResult {
  * Mantido independente do form para ser reutilizável em outros contextos.
  */
 export function useReceiptUpload(): UseReceiptUploadResult {
+  const { receiptService } = useTransactionContext();
   const [progress, setProgress] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,11 +38,10 @@ export function useReceiptUpload(): UseReceiptUploadResult {
       setError(null);
 
       try {
-        const url = await uploadAttachment(
+        const url = await receiptService.upload(
           userId,
           transactionId,
-          attachment.uri,
-          attachment.mimeType,
+          { uri: attachment.uri, name: attachment.name, mimeType: attachment.mimeType },
           (pct) => setProgress(pct),
         );
         return url;
@@ -54,7 +54,7 @@ export function useReceiptUpload(): UseReceiptUploadResult {
         setIsUploading(false);
       }
     },
-    [],
+    [receiptService],
   );
 
   const clearError = useCallback(() => setError(null), []);

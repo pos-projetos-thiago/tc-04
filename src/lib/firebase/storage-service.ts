@@ -1,4 +1,4 @@
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { storage } from './storage';
 
 /**
@@ -78,6 +78,14 @@ export async function getAttachmentDownloadUrl(storagePath: string): Promise<str
 
   const storageRef = ref(storage, path);
   return getDownloadURL(storageRef);
+}
+
+/** Exclui um recibo por caminho do Storage ou URL de download. */
+export async function deleteAttachment(storagePath: string): Promise<void> {
+  const path = storagePath.startsWith('https://')
+    ? extractStoragePath(storagePath)
+    : storagePath;
+  await deleteObject(ref(storage, path));
 }
 
 /** Mapeia MIME type para extensão de arquivo. */

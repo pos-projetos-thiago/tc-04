@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { transactionService } from '../services/firestore-transaction.service';
+import { useTransactionContext } from './use-transaction-context';
 
 interface UseDeleteTransactionResult {
   remove: (id: string, userId: string) => Promise<boolean>;
@@ -14,6 +14,7 @@ interface UseDeleteTransactionResult {
  * Retorna `true` em caso de sucesso, `false` em caso de erro.
  */
 export function useDeleteTransaction(): UseDeleteTransactionResult {
+  const { service } = useTransactionContext();
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export function useDeleteTransaction(): UseDeleteTransactionResult {
     setError(null);
 
     try {
-      await transactionService.delete(id, userId);
+      await service.delete(id, userId);
       return true;
     } catch (err) {
       const message =
@@ -32,7 +33,7 @@ export function useDeleteTransaction(): UseDeleteTransactionResult {
     } finally {
       setIsDeleting(false);
     }
-  }, []);
+  }, [service]);
 
   const clearError = useCallback(() => setError(null), []);
 

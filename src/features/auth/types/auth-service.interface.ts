@@ -6,6 +6,7 @@ import type { User } from './user';
  * substituir o authService sem alterar os hooks consumidores.
  */
 export interface IAuthService {
+  isConfigured(): boolean;
   signIn(email: string, password: string): Promise<User>;
   signUp(email: string, password: string, name: string): Promise<User>;
   sendPasswordResetEmail(email: string): Promise<void>;

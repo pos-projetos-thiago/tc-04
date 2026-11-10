@@ -15,7 +15,7 @@ import {
 } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
-import app from '@/src/lib/firebase/config';
+import app, { isFirebaseConfigured } from '@/src/lib/firebase/config';
 import { getPasswordResetActionCodeSettings } from '../utils/password-reset-linking';
 import type { IAuthService } from '../types/auth-service.interface';
 import type { User } from '../types/user';
@@ -43,6 +43,10 @@ const authInstance: Auth = createAuth();
  * Mapeia os dados do SDK (FirebaseUser) para o modelo de domínio (User).
  */
 class FirebaseAuthService implements IAuthService {
+  isConfigured(): boolean {
+    return isFirebaseConfigured();
+  }
+
   async signIn(email: string, password: string): Promise<User> {
     const { user } = await signInWithEmailAndPassword(authInstance, email, password);
     return this.mapUser(user);

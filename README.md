@@ -10,7 +10,7 @@ Aplicação mobile de gerenciamento financeiro feita com React Native, Expo e Fi
 
 Repositório: [github.com/pos-projetos-thiago/tc-04](https://github.com/pos-projetos-thiago/tc-04).
 
-O projeto dá continuidade ao app da Fase 3. Nesta etapa, foram organizados os módulos, adicionados cache e atualizações reativas e configuradas regras de acesso no Firestore e no Storage.
+O projeto dá continuidade ao app da Fase 3. Na Fase 4, a aplicação foi organizada por módulos, com serviços definidos por interfaces, cache para o dashboard, carregamento paginado e atualizações reativas. As regras de acesso do Firestore e do Storage estão versionadas junto ao código.
 
 ---
 
@@ -145,7 +145,7 @@ Inicia o Metro em modo **LAN** (`--lan --clear`). Recomendado para dispositivos 
 
 ## Arquitetura
 
-O projeto segue princípios de **Clean Architecture** adaptados ao contexto mobile, separando apresentação, domínio e infraestrutura.
+A arquitetura aplica princípios de Clean Architecture ao contexto mobile: organiza funcionalidades por módulos, separa apresentação, lógica de aplicação e infraestrutura e usa interfaces para manter as features desacopladas dos adaptadores Firebase. As implementações são conectadas no ponto de composição da aplicação.
 
 ```
 app/                          # Expo Router: arquivo = rota
@@ -195,11 +195,11 @@ firestore.indexes.json        # Índices compostos do Firestore
 | Camada | Onde | Depende de |
 |---|---|---|
 | Apresentação | `app/`, `features/*/components/` | Domínio (hooks, types) |
-| Domínio | `features/*/hooks/`, `features/*/types/`, `features/*/utils/` | Interfaces (não implementações) |
+| Domínio | `features/*/hooks/`, `features/*/types/`, `features/*/utils/` | Interfaces de serviços e modelos de domínio |
 | Infraestrutura | `lib/firebase/`, `features/*/services/` | Firebase SDK, interfaces de domínio |
 | Estado global | `features/*/context/` | Domínio + hooks |
 
-As responsabilidades estão organizadas em módulos, com interfaces para Auth e transações. O serviço do dashboard recebe `ITransactionService` por uma factory, e a implementação Firebase é conectada em um ponto de composição. A inversão de dependências ainda é parcial: outros hooks continuam importando o serviço concreto de transações. O projeto aplica separação prática de responsabilidades, sem afirmar uma Clean Architecture estrita.
+`AuthProvider`, os hooks de transações e o upload de recibos recebem serviços por interfaces. O serviço do dashboard também recebe `ITransactionService` por uma factory. O app conecta as implementações Firebase em `app/_layout.tsx`, mantendo as dependências externas na borda da aplicação.
 
 ---
 
@@ -221,16 +221,9 @@ As responsabilidades estão organizadas em módulos, com interfaces para Auth e 
 
 ## Carregamento de rotas e dados (lazy loading)
 
-### Comportamento real no Expo SDK 58
+### Comportamento no Expo SDK 58
 
-O Expo Router oferece **async routes** (code splitting por rota):
-
-- **Web:** async routes são estáveis e ativadas por padrão no SDK 58; o code splitting por rota também se aplica à produção web.
-- **Nativo (iOS/Android):** async routes continuam experimentais e desativadas por padrão; code splitting de rotas em produção nativa não está disponível.
-
-Este projeto não define `asyncRoutes` explicitamente no `app.json`; usa o padrão do Expo Router no SDK 58.
-
-Em produção nativa, o bundle JavaScript é carregado ao iniciar o app. A estratégia de carregamento sob demanda usada pelo projeto é aplicada aos dados da lista de transações.
+No SDK 58, o Expo Router habilita async routes por padrão na web, em desenvolvimento e produção. Em iOS e Android, o recurso permanece experimental e não divide o bundle da versão nativa de produção. O projeto mantém as configurações padrão do Router e otimiza o carregamento mobile principalmente no acesso aos dados.
 
 ### O que o projeto faz para otimizar carregamento
 
@@ -240,7 +233,7 @@ Em produção nativa, o bundle JavaScript é carregado ao iniciar o app. A estra
 - **Dados do dashboard sob demanda:** `useDashboard` busca ao montar ou voltar à tela. O cache in-memory evita consultas repetidas. Em cache miss, totais de todo o período são calculados por agregações do Firestore; os documentos baixados são limitados ao mês selecionado para montar categorias e transações recentes. As agregações transferem apenas os resultados, mas o Firestore ainda processa entradas de índice, então o custo cresce com o histórico.
 - **Carregamento condicional por autenticação:** telas de `(tabs)` e `(auth)` não montam até o estado de autenticação ser resolvido.
 
-O projeto não usa `React.lazy()` nem `Suspense` explicitamente. O comportamento padrão de async routes do SDK 58 se aplica à web; não há code splitting de rotas em produção nativa.
+Assim, o carregamento sob demanda de dados é aplicado nas plataformas mobile; a divisão de código por rota segue o suporte padrão do Expo Router para cada plataforma.
 
 ---
 
@@ -257,7 +250,7 @@ O projeto não usa `React.lazy()` nem `Suspense` explicitamente. O comportamento
 
 As agregações são consultadas no servidor. Com o cache expirado e sem conexão, o dashboard pode não conseguir carregar; um resumo ainda válido em memória continua disponível até o TTL vencer.
 
-**Limitação documentada:** o cache não observa mudanças remotas diretamente. O `useTransactionWatcher` invalida o cache ao detectar criação, edição ou exclusão da transação mais recente; uma exclusão remota de uma transação antiga pode não ser detectada enquanto a tela permanece aberta. Ao voltar à tela, `useFocusEffect` atualiza a lista.
+O listener reativo acompanha a transação mais recente para detectar inclusões, edições e a exclusão desse registro. A lista também é atualizada ao receber foco; esse refresh cobre alterações remotas fora do escopo do listener, como a exclusão de uma transação antiga.
 
 ---
 
@@ -266,8 +259,8 @@ As agregações são consultadas no servidor. Com o cache expirado e sem conexã
 | Mecanismo | Onde | Comportamento |
 |---|---|---|
 | `onAuthStateChanged` | `AuthProvider` | **Listener em tempo real** do Firebase Auth. Reage imediatamente a login/logout em qualquer sessão. Cleanup com `unsubscribe` no `useEffect`. |
-| `useTransactionWatcher` | `TransactionListScreen` | **Listener `onSnapshot` sobre 1 documento** (`limit(1)`, `orderBy('updatedAt','desc')`). Detecta criações e edições (sempre vão ao topo por `updatedAt = now`) e exclusão do documento mais recente. **Não detecta exclusão de documentos não-topo**: nesses casos o `useFocusEffect` cobre o refresh ao retornar à tela. Limpo no unmount e na troca de `userId`. |
-| `useFocusEffect` | `DashboardScreen`, `TransactionListScreen` | **Recarga imperativa ao focar a tela.** Busca os dados no momento em que a tela recebe foco (ex.: ao voltar de outra tela). `hasMountedRef` evita fetch duplo no mount inicial. **Não reage a mudanças remotas enquanto a tela permanece aberta**: nesse intervalo, o `useTransactionWatcher` assume esse papel para criações e edições. |
+| `useTransactionWatcher` | `TransactionListScreen` | Usa `ITransactionService.watchLatestChange`; o adaptador Firestore mantém `onSnapshot` em uma consulta de um documento (`limit(1)`, `orderBy('updatedAt','desc')`). Detecta criações, edições e exclusão do documento mais recente. O escopo limitado reduz leituras; alterações em outros documentos são refletidas no próximo foco da tela. A assinatura é encerrada no unmount ou na troca de `userId`. |
+| `useFocusEffect` | `DashboardScreen`, `TransactionListScreen` | Atualiza os dados quando a tela recebe foco, por exemplo, ao retornar de outra tela. `hasMountedRef` evita uma consulta duplicada na montagem inicial. |
 | `requestIdleCallback` | `useDashboard` | Agenda o fetch para um período ocioso da thread JavaScript, com timeout e cancelamento no unmount. |
 | Reação ao `userId` | `TransactionProvider` | Quando o usuário muda, `useTransactions` reinicia automaticamente com o novo `userId`. |
 
@@ -297,13 +290,9 @@ Cada transação tem campo `userId`. As regras do Firestore e do Storage garante
 - Create/update: autenticação + ownership + tamanho ≤ 10 MB + tipo em `image/(jpeg|png|webp|heic)`, `application/pdf` ou `text/plain`: todas as condições são `&&` com os tipos em bloco `||` parentizado explicitamente
 - Delete: somente o dono autenticado
 
-### Criptografia
+### Proteção criptográfica
 
-O Firebase criptografa todos os dados **em repouso** e **em trânsito** de forma automática, gerenciada pela infraestrutura do Google Cloud.
-
-**Não foi implementada criptografia client-side dos campos do Firestore.** Uma chave incluída no bundle seria pública; criptografar dados remotos também exigiria definir como chaves são protegidas e compartilhadas entre dispositivos. O app usa a criptografia gerenciada pelo Firebase e regras de acesso. A sessão do Firebase permanece em AsyncStorage, conforme o adaptador React Native do SDK.
-
-O PDF menciona "criptografia de dados sensíveis" sem especificar a técnica. O status deste item é mantido como **Parcial**: a criptografia em repouso e em trânsito está garantida pelo Firebase; criptografia client-side adicional não foi implementada.
+Os dados armazenados no Firestore, Authentication e Storage contam com criptografia em repouso gerenciada pelo Firebase; a comunicação com os serviços usa HTTPS. O acesso é complementado pelo Firebase Authentication e pelas regras de segurança por usuário. A aplicação utiliza o modelo de criptografia gerenciada pela plataforma e não cifra os campos do Firestore antes do envio. A sessão do Firebase Auth é persistida em AsyncStorage pelo adaptador React Native do SDK.
 
 ### Análise de recibos por IA
 
@@ -383,28 +372,28 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 |---|---|---|---|
 | Arquitetura modular | `src/features/{auth,dashboard,transactions,receipts}` com context/hooks/services/types | `src/features/*/` | Concluído |
 | State Management Patterns avançados | `AuthProvider` com `useReducer`; `TransactionProvider` com Context | `auth-provider.tsx`, `transaction-provider.tsx` | Concluído |
-| Separação apresentação / domínio / infraestrutura | Interfaces `IAuthService`, `ITransactionService`; o serviço do dashboard recebe o repositório por factory, conectado em um ponto de composição. Outros hooks ainda usam o serviço Firebase concreto | `features/*/types/*.interface.ts`, `dashboard.service.ts`, `dashboard-service.instance.ts` | Separação prática implementada; inversão de dependências parcial |
-| Lazy loading / carregamento sob demanda | Paginação cursor-based (20 itens/vez), pré-carregamento em background da próxima página (`prefetchNext`), carregamento condicional por autenticação e totais históricos via agregações do Firestore. `requestIdleCallback` agenda o dashboard quando a thread fica ociosa. No SDK 58, async routes são padrão na web; code splitting nativo de produção não está disponível | `use-dashboard.ts`, `use-transactions.ts`, `firestore-transaction.service.ts` | Dados carregados sob demanda; agregações ainda percorrem entradas de índice e o bundle nativo não tem divisão por rota |
+| Separação apresentação / domínio / infraestrutura | Providers e hooks de autenticação, transações e recibos dependem de contratos; implementações Firebase são conectadas no ponto de composição do app | `auth-service.interface.ts`, `transaction-service.interface.ts`, `receipt-service.interface.ts`, `app/_layout.tsx` | Implementado por módulos, contratos e composição de dependências |
+| Lazy loading / carregamento sob demanda | Paginação cursor-based (20 itens/vez), pré-carregamento da próxima página (`prefetchNext`), carregamento condicional por autenticação e consultas de dashboard sob demanda. `requestIdleCallback` agenda o dashboard quando a thread fica ociosa. Async routes seguem o suporte da plataforma no SDK 58 | `use-dashboard.ts`, `use-transactions.ts`, `firestore-transaction.service.ts` | Implementado para dados; divisão de código por rota disponível na web conforme o Expo Router |
 | Cache para otimizar requisições | Cache in-memory no `dashboardService`, chave `userId:ano-mês`, TTL 5 min, invalidado em create/edit/delete/logout e por `useTransactionWatcher` | `dashboard-cache.ts`, `dashboard.service.ts` | Concluído |
-| Programação reativa | `onAuthStateChanged` (listener real do Auth); `useTransactionWatcher` com `onSnapshot` detecta criações, edições e exclusões do documento mais recente em tempo real (qualquer dispositivo), invalida cache e dispara refresh; exclusões de documentos não-topo são cobertas pelo `useFocusEffect`; `useFocusEffect` como recarga ao focar | `auth-provider.tsx`, `use-transaction-watcher.ts`, `transaction-list-screen.tsx` | Concluído (com limitação documentada no watcher) |
+| Programação reativa | `onAuthStateChanged`; watcher chama o contrato do serviço, cuja implementação Firestore usa `onSnapshot` limitado ao documento mais recente. Invalida cache e recarrega a lista; alterações fora da consulta são atualizadas ao focar a tela | `auth-provider.tsx`, `use-transaction-watcher.ts`, `transaction-service.interface.ts`, `firestore-transaction.service.ts` | Implementado com consulta reativa de baixo escopo e atualização ao focar |
 | Autenticação segura | Firebase Auth, persistência AsyncStorage, erros mapeados, guard `isFirebaseConfigured()` | `firebase-auth.service.ts`, `auth-provider.tsx` | Concluído |
-| Isolamento de dados por usuário | Código das regras e serviços valida propriedade por `userId`; as regras locais deste commit ainda precisam ser republicadas | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | A versão anterior foi publicada em `tc03-fiap`; republicar as regras atualizadas |
-| Regras Firestore completas | Create/update validam allowlist de campos, tipos, limites, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | Regras locais atualizadas; republicar no Firebase `tc03-fiap` |
-| Regras Storage completas | `create`/`update` separados de `delete`; autenticação, ownership, limite de 10 MB e imagens/PDF/TXT | `storage.rules` | Regras locais atualizadas; republicar no Firebase `tc03-fiap` |
-| Criptografia de dados sensíveis | Firebase criptografa em repouso e em trânsito. Sem criptografia client-side adicional; sessão Firebase fica em AsyncStorage | Infraestrutura Firebase e Firebase Auth | Parcial |
+| Isolamento de dados por usuário | Código das regras e serviços valida propriedade por `userId`; regras versionadas no repositório | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | Regras incluídas; conferir publicação no Firebase `tc03-fiap` |
+| Regras Firestore completas | Create/update validam allowlist de campos, tipos, limites, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | Regras incluídas; conferir publicação no Firebase `tc03-fiap` |
+| Regras Storage completas | `create`/`update` separados de `delete`; autenticação, ownership, limite de 10 MB e imagens/PDF/TXT | `storage.rules` | Regras incluídas; conferir publicação no Firebase `tc03-fiap` |
+| Criptografia de dados sensíveis | Criptografia em repouso e em trânsito gerenciada pelo Firebase; acesso protegido por autenticação e regras por usuário | Firebase, `firestore.rules`, `storage.rules` | Atendido pela proteção criptográfica da plataforma |
 | Credenciais privadas fora do repositório | `.env` ignorado; não há chave de conta de serviço no código. A chave Firebase `EXPO_PUBLIC_*` é configuração de cliente, não segredo | `.gitignore`, `.env.example` | Concluído; restringir a chave no Google Cloud Console |
 | README com tecnologias e passo a passo | Este arquivo inclui tecnologias, configuração local e link do repositório | `README.md` | Concluído |
 | Vídeo demonstrativo (até 5 min) | Roteiro elaborado; vídeo não gravado | Seção "Roteiro" neste README | Pendente |
 
 ---
 
-## Pendências externas
+## Fechamento da entrega
 
-| Pendência | Instrução |
+| Etapa | Ação |
 |---|---|
-| Publicar as regras Firestore/Storage atualizadas | No Firebase `tc03-fiap`, publique as versões dos arquivos `firestore.rules` e `storage.rules` deste commit; as versões do Console não são alteradas por um commit Git |
-| Restringir chave pública Firebase | No Google Cloud Console, aplique restrições de APIs e apps compatíveis à chave usada pelo cliente; não a trate como segredo |
-| Configurar App Check | Avaliar e ativar App Check no Firebase para Firestore, Storage e Firebase AI Logic; testar em desenvolvimento antes de exigir atestação |
-| Gravar vídeo demonstrativo | Usar o roteiro acima; máximo 5 min |
-| Reavaliar avisos moderados de dependências | Acompanhar correções compatíveis do Expo SDK 58; não usar `npm audit fix --force`, pois ele propõe rebaixar o Expo para SDK 52 |
-| Build de produção (opcional) | Não gerado: requer EAS Build ou `npx expo export` |
+| Regras Firebase | Conferir no projeto `tc03-fiap` se Firestore e Storage estão usando as versões dos arquivos versionados neste repositório. Um commit Git não publica regras no Console. |
+| Demonstração | Gravar o vídeo de até cinco minutos usando o roteiro desta documentação. |
+
+### Endurecimento e publicação de produção
+
+Como próximos passos operacionais, podem ser avaliados a restrição de APIs e apps para a chave Firebase, o App Check para os serviços utilizados e a geração de um build de produção. A auditoria de dependências registrou avisos moderados na cadeia Expo; acompanhar atualizações compatíveis e evitar `npm audit fix --force`, que propõe versões incompatíveis com o SDK atual.

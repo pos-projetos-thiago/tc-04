@@ -8,9 +8,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { transactionService } from '../services/firestore-transaction.service';
 import type { Transaction } from '../types/transaction';
 import { DEFAULT_FILTER, type TransactionFilter } from '../types/transaction-filter';
+import type { ITransactionService } from '../types/transaction-service.interface';
 
 interface UseTransactionsState {
   transactions: Transaction[];
@@ -38,6 +38,7 @@ interface UseTransactionsResult extends UseTransactionsState {
  */
 export function useTransactions(
   userId: string | null,
+  transactionService: ITransactionService,
   filter: TransactionFilter = DEFAULT_FILTER,
 ): UseTransactionsResult {
   const [state, setState] = useState<UseTransactionsState>({

@@ -2,6 +2,8 @@ import { createContext } from 'react';
 
 import type { Transaction } from '../types/transaction';
 import type { TransactionFilter } from '../types/transaction-filter';
+import type { ITransactionService } from '../types/transaction-service.interface';
+import type { IReceiptService } from '@/src/features/receipts/types/receipt-service.interface';
 
 /**
  * Contrato público exposto pelo TransactionProvider.
@@ -15,6 +17,9 @@ import type { TransactionFilter } from '../types/transaction-filter';
  *   trocado sem alterar nenhum consumidor.
  */
 export interface TransactionContextValue {
+  /** Porta de acesso aos casos de uso da feature, fornecida no composition root. */
+  service: ITransactionService;
+  receiptService: IReceiptService;
   /** Lista de transações já carregadas (página acumulada). */
   transactions: Transaction[];
   /** `true` durante o carregamento da primeira página. */

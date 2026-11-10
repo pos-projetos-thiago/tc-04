@@ -5,7 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/src/features/auth';
 import { useColorScheme } from '@/src/shared/hooks/use-color-scheme';
 
-import { transactionService } from '../services/firestore-transaction.service';
+import { useTransactionContext } from '../hooks/use-transaction-context';
 import type { Transaction } from '../types/transaction';
 import { TransactionForm } from './transaction-form';
 
@@ -19,6 +19,7 @@ type TransactionLoadState =
 
 export function TransactionEditScreen({ id }: TransactionEditScreenProps) {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { service } = useTransactionContext();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const transactionId = Array.isArray(id) ? id[0] : id;
@@ -31,7 +32,7 @@ export function TransactionEditScreen({ id }: TransactionEditScreenProps) {
     if (!userId || !transactionId) return () => { active = false; };
 
     const key = `${userId}:${transactionId}`;
-    transactionService
+    service
       .getById(transactionId, userId)
       .then((result) => {
         if (active) setLoadState({ key, status: 'loaded', transaction: result });
@@ -43,7 +44,7 @@ export function TransactionEditScreen({ id }: TransactionEditScreenProps) {
     return () => {
       active = false;
     };
-  }, [transactionId, userId]);
+  }, [service, transactionId, userId]);
 
   const currentLoad = requestKey && loadState?.key === requestKey ? loadState : null;
 

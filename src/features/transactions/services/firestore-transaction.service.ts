@@ -12,6 +12,7 @@ import {
   getDocs,
   getFirestore,
   limit,
+  onSnapshot,
   orderBy,
   query,
   startAfter,
@@ -68,6 +69,32 @@ class FirestoreTransactionService implements ITransactionService {
       this._db = getFirestore(app);
     }
     return this._db;
+  }
+
+  watchLatestChange(
+    userId: string,
+    onChanged: () => void,
+    onError: (error: Error) => void,
+  ): () => void {
+    const q = query(
+      collection(this.db, COLLECTION),
+      where('userId', '==', userId),
+      orderBy('updatedAt', 'desc'),
+      limit(1),
+    );
+    let initialized = false;
+
+    return onSnapshot(
+      q,
+      () => {
+        if (!initialized) {
+          initialized = true;
+          return;
+        }
+        onChanged();
+      },
+      onError,
+    );
   }
 
   async getLifetimeTotals(userId: string): Promise<{
