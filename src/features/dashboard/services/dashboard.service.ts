@@ -12,6 +12,13 @@ import {
 import { getCached, setCached, invalidateUser } from './dashboard-cache';
 
 const RECENT_COUNT = 5;
+let nextRequestId = 0;
+const latestRequestByKey = new Map<string, number>();
+const invalidationVersionByUser = new Map<string, number>();
+
+function makeSummaryKey(userId: string, referenceMonth: Date): string {
+  return `${userId}:${referenceMonth.getUTCFullYear()}-${referenceMonth.getUTCMonth()}`;
+}
 
 /**
  * Busca todas as páginas de transações para um filtro, acumulando via cursor.
@@ -54,14 +61,27 @@ async function getSummary(
   const cached = getCached(userId, referenceMonth);
   if (cached) return cached;
 
+  const cacheKey = makeSummaryKey(userId, referenceMonth);
+  const requestId = ++nextRequestId;
+  const invalidationVersion = invalidationVersionByUser.get(userId) ?? 0;
+  latestRequestByKey.set(cacheKey, requestId);
+
   const monthStart = startOfMonth(referenceMonth);
   const monthEnd = endOfMonth(referenceMonth);
 
-  const allTransactions = await fetchAllPages(userId, {
-    type: null,
-    category: null,
-    dateRange: null,
-  });
+  let allTransactions: Transaction[];
+  try {
+    allTransactions = await fetchAllPages(userId, {
+      type: null,
+      category: null,
+      dateRange: null,
+    });
+  } catch (error) {
+    if (latestRequestByKey.get(cacheKey) === requestId) {
+      latestRequestByKey.delete(cacheKey);
+    }
+    throw error;
+  }
   const monthTransactions = allTransactions.filter((transaction) => {
     const timestamp = new Date(transaction.date).getTime();
     return timestamp >= monthStart.getTime() && timestamp <= monthEnd.getTime();
@@ -96,7 +116,15 @@ async function getSummary(
     referenceMonth: monthStart,
   };
 
-  setCached(userId, referenceMonth, summary);
+  // Só a solicitação mais recente pode preencher o cache. Uma busca iniciada
+  // antes de uma mutação também é descartada se o cache foi invalidado durante
+  // a leitura paginada.
+  if (latestRequestByKey.get(cacheKey) === requestId) {
+    if ((invalidationVersionByUser.get(userId) ?? 0) === invalidationVersion) {
+      setCached(userId, referenceMonth, summary);
+    }
+    latestRequestByKey.delete(cacheKey);
+  }
   return summary;
 }
 
@@ -106,6 +134,10 @@ async function getSummary(
  * que o próximo acesso ao dashboard reflita os dados mais recentes.
  */
 export function invalidateDashboard(userId: string): void {
+  invalidationVersionByUser.set(
+    userId,
+    (invalidationVersionByUser.get(userId) ?? 0) + 1,
+  );
   invalidateUser(userId);
 }
 

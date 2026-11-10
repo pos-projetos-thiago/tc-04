@@ -35,9 +35,15 @@ export function useDashboard(
   // Ref para rastrear se o componente ainda está montado, evitando setState
   // após desmontagem quando o timer dispara.
   const mountedRef = useRef(true);
+  // Respostas de carregamentos antigos não podem sobrescrever um refresh novo.
+  const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
-    if (!userId) return;
+    const requestId = ++requestIdRef.current;
+    if (!userId) {
+      setState({ summary: null, isLoading: false, error: null });
+      return;
+    }
 
     setState((prev) => ({
       summary: prev.summary,
@@ -47,11 +53,11 @@ export function useDashboard(
 
     try {
       const summary = await dashboardService.getSummary(userId, referenceMonth);
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setState({ summary, isLoading: false, error: null });
       }
     } catch (err) {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         const message =
           err instanceof Error
             ? err.message
@@ -69,6 +75,7 @@ export function useDashboard(
     const id = requestIdleCallback(() => { void load(); }, { timeout: 1000 });
     return () => {
       mountedRef.current = false;
+      requestIdRef.current += 1;
       cancelIdleCallback(id);
     };
   }, [load]);

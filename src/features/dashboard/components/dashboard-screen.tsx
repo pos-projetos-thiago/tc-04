@@ -196,7 +196,7 @@ export function DashboardScreen() {
     >
       {/*
         Sem prefetch de rota aqui: async routes em nativo são experimentais
-        e não se aplicam a builds de produção no SDK 57. O <Link prefetch>
+        e não se aplicam a builds de produção nativa no SDK 58. O <Link prefetch>
         montaria a tela de nova transação off-screen com limitações documentadas
         (sem router imperativo, sem setOptions). Lazy loading nativo é gerenciado
         pelo Metro em desenvolvimento; em produção todo o bundle já está disponível.
