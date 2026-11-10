@@ -107,6 +107,16 @@ class FirestoreTransactionService implements ITransactionService {
     return { items, cursor: nextCursor, hasMore };
   }
 
+  async getById(id: string, userId: string): Promise<Transaction | null> {
+    const snapshot = await getDoc(doc(this.db, COLLECTION, id));
+    if (!snapshot.exists()) return null;
+
+    const dto = snapshot.data() as TransactionDTO;
+    if (dto.userId !== userId) return null;
+
+    return toTransaction(snapshot);
+  }
+
   async create(userId: string, data: CreateTransactionInput): Promise<Transaction> {
     const now = Timestamp.now();
 

@@ -32,26 +32,21 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    async function prepare() {
-      try {
-        // Aguarda pelo menos 2 frames para garantir que o AppSplashScreen
-        // foi pintado antes de marcar como pronto.
-        await new Promise<void>((resolve) => {
-          // requestAnimationFrame não existe no RN; usa setTimeout com 0ms
-          // para deixar o JS thread processar o render do AppSplashScreen.
-          setTimeout(resolve, 2000);
-        });
-      } catch (error) {
-        // Erros de inicialização não devem bloquear a splash.
-        console.warn('Erro durante inicialização:', error);
-      } finally {
+    // Aguarda dois frames para que a splash React seja pintada antes de
+    // ocultar a tela nativa, sem impor um atraso artificial à inicialização.
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
         setIsReady(true);
-        // Oculta a splash screen nativa com o fade configurado acima.
-        await SplashScreen.hideAsync();
-      }
-    }
-
-    prepare();
+        void SplashScreen.hideAsync().catch((error: unknown) => {
+          console.warn('Erro ao ocultar a splash screen:', error);
+        });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
   }, []);
 
   // Enquanto não estiver pronto, exibe a splash customizada React

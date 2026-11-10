@@ -87,7 +87,6 @@ export function TransactionListScreen() {
       pathname: `/transactions/[id]`,
       params: {
         id: transaction.id,
-        data: JSON.stringify(transaction),
       },
     });
   }

@@ -35,6 +35,30 @@ service cloud.firestore {
     // Coleção de transações.
     match /transactions/{transactionId} {
 
+      function hasValidTransactionData(data) {
+        return data.keys().hasAll([
+                 'userId', 'type', 'amount', 'category',
+                 'description', 'date', 'receiptUrl', 'createdAt', 'updatedAt'
+               ])
+               && data.keys().hasOnly([
+                    'userId', 'type', 'amount', 'category',
+                    'description', 'date', 'receiptUrl', 'createdAt', 'updatedAt'
+                  ])
+               && data.userId is string
+               && data.type in ['income', 'expense', 'investment']
+               && data.amount is number
+               && data.amount > 0
+               && data.category is string
+               && data.category.size() > 0
+               && data.category.size() <= 60
+               && data.description is string
+               && data.description.size() <= 120
+               && data.date is timestamp
+               && (data.receiptUrl == null || (data.receiptUrl is string && data.receiptUrl.size() <= 2048))
+               && data.createdAt is timestamp
+               && data.updatedAt is timestamp;
+      }
+
       // Permite leitura apenas se o documento pertence ao usuário autenticado.
       allow read: if request.auth != null
                   && resource.data.userId == request.auth.uid;
@@ -45,12 +69,7 @@ service cloud.firestore {
       //   - os campos obrigatórios estão presentes.
       allow create: if request.auth != null
                    && request.resource.data.userId == request.auth.uid
-                   && request.resource.data.keys().hasAll([
-                        'userId', 'type', 'amount', 'category',
-                        'description', 'date', 'createdAt', 'updatedAt'
-                      ])
-                   && request.resource.data.amount is number
-                   && request.resource.data.amount > 0;
+                   && hasValidTransactionData(request.resource.data);
 
       // Permite atualização se:
       //   - o usuário está autenticado;
@@ -61,12 +80,7 @@ service cloud.firestore {
       allow update: if request.auth != null
                    && resource.data.userId == request.auth.uid
                    && request.resource.data.userId == request.auth.uid
-                   && request.resource.data.keys().hasAll([
-                        'userId', 'type', 'amount', 'category',
-                        'description', 'date', 'createdAt', 'updatedAt'
-                      ])
-                   && request.resource.data.amount is number
-                   && request.resource.data.amount > 0
+                   && hasValidTransactionData(request.resource.data)
                    && request.resource.data.createdAt == resource.data.createdAt;
 
       // Permite exclusão apenas pelo dono do documento.

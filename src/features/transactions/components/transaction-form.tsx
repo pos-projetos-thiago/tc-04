@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -284,7 +285,24 @@ export function TransactionForm({ initialData }: TransactionFormProps) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>(EMPTY_ERRORS);
   const [submitted, setSubmitted] = useState(false);
 
-  async function handleAnalyzeWithAI() {
+  function handleAnalyzeWithAI() {
+    if (!selectedAttachment) return;
+
+    const message =
+      'O arquivo selecionado será enviado ao Google Gemini pelo Firebase AI Logic para extrair os dados da transação. Deseja continuar?';
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) void analyzeSelectedAttachment();
+      return;
+    }
+
+    Alert.alert('Enviar documento para análise?', message, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Continuar', onPress: () => void analyzeSelectedAttachment() },
+    ]);
+  }
+
+  async function analyzeSelectedAttachment() {
     if (!selectedAttachment) return;
     const result = await analyze(selectedAttachment);
     if (!result) return;

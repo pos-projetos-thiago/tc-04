@@ -8,6 +8,8 @@ import type { TransactionFilter } from './transaction-filter';
  * sem alterar nenhum hook consumidor.
  */
 export interface ITransactionService {
+  getById(id: string, userId: string): Promise<Transaction | null>;
+
   getPage(
     userId: string,
     cursor?: unknown,

@@ -36,9 +36,8 @@ async function fetchAllPages(
 /**
  * Calcula o resumo financeiro do dashboard para o mês de referência.
  *
- * Faz duas buscas em paralelo:
- *   1. Transações do mês atual (para totais e recentes do período)
- *   2. Histórico completo (para saldo disponível e patrimônio all-time)
+ * Faz uma busca paginada do histórico completo e deriva dela as transações
+ * do mês de referência, evitando ler os mesmos documentos do mês duas vezes.
  *
  * Semântica:
  *   balance  = income(all) - expense(all) - investment(all)
@@ -58,12 +57,15 @@ async function getSummary(
   const monthStart = startOfMonth(referenceMonth);
   const monthEnd = endOfMonth(referenceMonth);
 
-  const dateRange = { start: monthStart, end: monthEnd };
-
-  const [monthTransactions, allTransactions] = await Promise.all([
-    fetchAllPages(userId, { type: null, category: null, dateRange }),
-    fetchAllPages(userId, { type: null, category: null, dateRange: null }),
-  ]);
+  const allTransactions = await fetchAllPages(userId, {
+    type: null,
+    category: null,
+    dateRange: null,
+  });
+  const monthTransactions = allTransactions.filter((transaction) => {
+    const timestamp = new Date(transaction.date).getTime();
+    return timestamp >= monthStart.getTime() && timestamp <= monthEnd.getTime();
+  });
 
   const monthCurrentAccount = monthTransactions.filter((t) => t.type !== 'investment');
   const monthInvestments = monthTransactions.filter((t) => t.type === 'investment');

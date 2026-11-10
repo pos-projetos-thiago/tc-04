@@ -26,8 +26,8 @@ interface CacheEntry {
 const store = new Map<string, CacheEntry>();
 
 function makeKey(userId: string, referenceMonth: Date): string {
-  const year = referenceMonth.getFullYear();
-  const month = referenceMonth.getMonth(); // 0-indexed
+  const year = referenceMonth.getUTCFullYear();
+  const month = referenceMonth.getUTCMonth(); // 0-indexed
   return `${userId}:${year}-${month}`;
 }
 

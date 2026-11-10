@@ -10,7 +10,7 @@ rules_version = '2';
 //   2. Isolamento por usuário: leitura e escrita permitidas apenas no
 //      prefixo do próprio usuário autenticado (userId do caminho ==
 //      UID do token).
-//   3. Validação de tipo e tamanho: apenas imagens e PDF; máximo 10 MB.
+//   3. Validação de tipo e tamanho: imagens, PDF e TXT; máximo 10 MB.
 //      As condições de autenticação, ownership, tamanho e tipo formam
 //      um único bloco AND — todas devem ser verdadeiras simultaneamente.
 //
@@ -36,7 +36,7 @@ service firebase.storage {
       //   - usuário autenticado
       //   - userId do caminho == UID do token
       //   - tamanho máximo 10 MB
-      //   - content-type restrito a imagens ou PDF
+      //   - content-type restrito a imagens, PDF ou texto simples
       //
       // Todas as condições são AND explícito com parênteses para evitar
       // ambiguidade de precedência entre && e ||.
@@ -47,6 +47,7 @@ service firebase.storage {
         && (
           request.resource.contentType.matches('image/(jpeg|png|webp|heic)')
           || request.resource.contentType == 'application/pdf'
+          || request.resource.contentType == 'text/plain'
         )
       );
 

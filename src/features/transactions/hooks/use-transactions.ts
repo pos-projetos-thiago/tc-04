@@ -50,6 +50,7 @@ export function useTransactions(
 
   const cursorRef = useRef<unknown>(undefined);
   const isFetchingRef = useRef(false);
+  const loadGenerationRef = useRef(0);
   const filterKey = JSON.stringify(filter);
 
   /**
@@ -103,8 +104,22 @@ export function useTransactions(
   );
 
   const load = useCallback(async () => {
-    if (!userId) return;
-    if (isFetchingRef.current) return;
+    const generation = ++loadGenerationRef.current;
+    if (!userId) {
+      prefetchTokenRef.current += 1;
+      cursorRef.current = undefined;
+      prefetchRef.current = null;
+      isFetchingRef.current = false;
+      setState({
+        transactions: [],
+        isLoading: false,
+        isLoadingMore: false,
+        hasMore: false,
+        error: null,
+      });
+      return;
+    }
+
     isFetchingRef.current = true;
 
     // Invalida qualquer prefetch em voo do ciclo anterior.
@@ -122,6 +137,7 @@ export function useTransactions(
 
     try {
       const result = await transactionService.getPage(userId, undefined, filter);
+      if (generation !== loadGenerationRef.current) return;
       cursorRef.current = result.hasMore ? result.cursor : undefined;
       setState({
         transactions: result.items,
@@ -135,6 +151,7 @@ export function useTransactions(
         prefetchNext(result.cursor);
       }
     } catch (err) {
+      if (generation !== loadGenerationRef.current) return;
       const message =
         err instanceof Error
           ? err.message
@@ -147,7 +164,9 @@ export function useTransactions(
         error: message,
       });
     } finally {
-      isFetchingRef.current = false;
+      if (generation === loadGenerationRef.current) {
+        isFetchingRef.current = false;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, filterKey]);
@@ -158,6 +177,7 @@ export function useTransactions(
     if (!cursorRef.current) return;
 
     isFetchingRef.current = true;
+    const generation = loadGenerationRef.current;
 
     setState((prev) => ({ ...prev, isLoadingMore: true, error: null }));
 
@@ -177,6 +197,8 @@ export function useTransactions(
         result = await transactionService.getPage(userId, cursorRef.current, filter);
       }
 
+      if (generation !== loadGenerationRef.current) return;
+
       cursorRef.current = result.hasMore ? result.cursor : undefined;
       setState((prev) => ({
         ...prev,
@@ -189,13 +211,16 @@ export function useTransactions(
         prefetchNext(result.cursor);
       }
     } catch (err) {
+      if (generation !== loadGenerationRef.current) return;
       const message =
         err instanceof Error
           ? err.message
           : 'Não foi possível carregar mais transações.';
       setState((prev) => ({ ...prev, isLoadingMore: false, error: message }));
     } finally {
-      isFetchingRef.current = false;
+      if (generation === loadGenerationRef.current) {
+        isFetchingRef.current = false;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, filterKey]);

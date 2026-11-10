@@ -17,7 +17,7 @@ function check(label, condition, details) {
   }
 }
 
-console.log('\n=== Validação do projeto (ByteBank / tc-03) ===\n');
+console.log('\n=== Validação do projeto (ByteBank TC-04 / Firebase tc03-fiap) ===\n');
 
 // 1. metro.config.js existe e carrega sem erro
 let metroCfg;
@@ -51,13 +51,13 @@ check('script start usa --clear',
   (pkg.scripts.start || '').includes('--clear'),
   `atual: ${pkg.scripts.start}`);
 
-// 3. app.json tem NSAppTransportSecurity configurado
+// 3. app.json mantém o ATS sem liberar HTTP arbitrário
 const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
 const ios = appJson.expo && appJson.expo.ios;
 const ats = ios && ios.infoPlist && ios.infoPlist.NSAppTransportSecurity;
 check('app.json tem ios.infoPlist.NSAppTransportSecurity', !!ats);
-check('ATS tem NSAllowsArbitraryLoads = true',
-  ats && ats.NSAllowsArbitraryLoads === true);
+check('ATS não libera HTTP arbitrário',
+  ats && ats.NSAllowsArbitraryLoads !== true);
 check('ATS tem exceção para exp.direct',
   ats && ats.NSExceptionDomains && !!ats.NSExceptionDomains['exp.direct']);
 check('ATS tem exceção para localhost',
