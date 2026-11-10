@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { dashboardService } from '../services/dashboard.service';
+import { dashboardService } from '../services/dashboard-service.instance';
 import type { DashboardSummary } from '../types/dashboard-summary';
 
 interface UseDashboardState {

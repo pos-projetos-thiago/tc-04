@@ -21,7 +21,7 @@ import type { SelectedAttachment } from '@/src/features/receipts/types/selected-
 import { useColorScheme } from '@/src/shared/hooks/use-color-scheme';
 import { validateAmount } from '@/src/shared/utils/validators';
 
-import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard.service';
+import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard-service.instance';
 import { useCreateTransaction } from '../hooks/use-create-transaction';
 import { useEditTransaction } from '../hooks/use-edit-transaction';
 import { useReceiptUpload } from '../hooks/use-receipt-upload';

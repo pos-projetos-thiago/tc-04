@@ -8,12 +8,14 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getAggregateFromServer,
   getDocs,
   getFirestore,
   limit,
   orderBy,
   query,
   startAfter,
+  sum,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -66,6 +68,30 @@ class FirestoreTransactionService implements ITransactionService {
       this._db = getFirestore(app);
     }
     return this._db;
+  }
+
+  async getLifetimeTotals(userId: string): Promise<{
+    income: number;
+    expense: number;
+    investment: number;
+  }> {
+    const ref = collection(this.db, COLLECTION);
+    const types = ['income', 'expense', 'investment'] as const;
+    const totals = await Promise.all(
+      types.map(async (type) => {
+        const result = await getAggregateFromServer(
+          query(ref, where('userId', '==', userId), where('type', '==', type)),
+          { total: sum('amount') },
+        );
+        return result.data().total ?? 0;
+      }),
+    );
+
+    return {
+      income: totals[0],
+      expense: totals[1],
+      investment: totals[2],
+    };
   }
 
   async getPage(

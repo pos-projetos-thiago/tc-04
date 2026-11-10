@@ -199,7 +199,7 @@ firestore.indexes.json        # Índices compostos do Firestore
 | Infraestrutura | `lib/firebase/`, `features/*/services/` | Firebase SDK, interfaces de domínio |
 | Estado global | `features/*/context/` | Domínio + hooks |
 
-As responsabilidades estão organizadas em módulos, com interfaces para Auth e transações. A inversão de dependências não é completa: alguns hooks e serviços ainda importam implementações Firebase concretas e não há container de injeção. O projeto aplica separação prática de responsabilidades, sem afirmar uma Clean Architecture estrita.
+As responsabilidades estão organizadas em módulos, com interfaces para Auth e transações. O serviço do dashboard recebe `ITransactionService` por uma factory, e a implementação Firebase é conectada em um ponto de composição. A inversão de dependências ainda é parcial: outros hooks continuam importando o serviço concreto de transações. O projeto aplica separação prática de responsabilidades, sem afirmar uma Clean Architecture estrita.
 
 ---
 
@@ -237,7 +237,7 @@ Em produção nativa, o bundle JavaScript é carregado ao iniciar o app. A estra
 - **`requestIdleCallback` no dashboard:** substitui o `InteractionManager`, removido no React Native 0.87. O fetch do Firestore é agendado quando a thread JavaScript fica ociosa, com timeout de 1 segundo e cancelamento no unmount. Implementado em `use-dashboard.ts`.
 - **Paginação de transações:** scroll infinito cursor-based: carrega 20 itens por vez, busca mais ao rolar.
 - **Pré-carregamento da próxima página (`prefetchNext`):** logo após a primeira página ser exibida, `use-transactions.ts` busca silenciosamente a segunda em background e a armazena em `prefetchRef`. Quando o usuário aciona `loadMore`, o resultado já está disponível: sem nova requisição ao Firestore. O padrão se repete a cada página carregada.
-- **Dados do dashboard sob demanda:** `useDashboard` só busca quando o componente monta, com cache in-memory para evitar re-fetches desnecessários. Em cache miss, o serviço ainda pagina todo o histórico uma vez para calcular saldo e patrimônio; o mês atual é derivado desse resultado. O custo continua crescendo com o número de transações do usuário.
+- **Dados do dashboard sob demanda:** `useDashboard` busca ao montar ou voltar à tela. O cache in-memory evita consultas repetidas. Em cache miss, totais de todo o período são calculados por agregações do Firestore; os documentos baixados são limitados ao mês selecionado para montar categorias e transações recentes. As agregações transferem apenas os resultados, mas o Firestore ainda processa entradas de índice, então o custo cresce com o histórico.
 - **Carregamento condicional por autenticação:** telas de `(tabs)` e `(auth)` não montam até o estado de autenticação ser resolvido.
 
 O projeto não usa `React.lazy()` nem `Suspense` explicitamente. O comportamento padrão de async routes do SDK 58 se aplica à web; não há code splitting de rotas em produção nativa.
@@ -246,7 +246,7 @@ O projeto não usa `React.lazy()` nem `Suspense` explicitamente. O comportamento
 
 ## Cache do dashboard
 
-`dashboardService.getSummary()` usa cache in-memory com:
+`dashboardService.getSummary()` consulta totais históricos com agregações do Firestore e usa cache in-memory com:
 
 - **Chave:** `userId:ano-mês`: isolado por usuário e período
 - **TTL:** 5 minutos (sem persistência entre sessões)
@@ -254,6 +254,8 @@ O projeto não usa `React.lazy()` nem `Suspense` explicitamente. O comportamento
   - Após criar ou editar transação (`TransactionForm`)
   - Após excluir transação (`TransactionListScreen`)
   - Ao fazer logout (`AuthProvider.signOut`)
+
+As agregações são consultadas no servidor. Com o cache expirado e sem conexão, o dashboard pode não conseguir carregar; um resumo ainda válido em memória continua disponível até o TTL vencer.
 
 **Limitação documentada:** o cache não observa mudanças remotas diretamente. O `useTransactionWatcher` invalida o cache ao detectar criação, edição ou exclusão da transação mais recente; uma exclusão remota de uma transação antiga pode não ser detectada enquanto a tela permanece aberta. Ao voltar à tela, `useFocusEffect` atualiza a lista.
 
@@ -381,8 +383,8 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 |---|---|---|---|
 | Arquitetura modular | `src/features/{auth,dashboard,transactions,receipts}` com context/hooks/services/types | `src/features/*/` | Concluído |
 | State Management Patterns avançados | `AuthProvider` com `useReducer`; `TransactionProvider` com Context | `auth-provider.tsx`, `transaction-provider.tsx` | Concluído |
-| Separação apresentação / domínio / infraestrutura | Interfaces `IAuthService`, `ITransactionService`; módulos de tela, tipos e serviços separados. Alguns hooks/serviços ainda dependem diretamente de implementações Firebase; não há injeção completa | `features/*/types/*.interface.ts`, `lib/firebase/` | Separação prática implementada; inversão de dependências parcial |
-| Lazy loading / carregamento sob demanda | Paginação cursor-based (20 itens/vez), pré-carregamento em background da próxima página (`prefetchNext`) e carregamento condicional por autenticação. `requestIdleCallback` agenda o fetch do dashboard quando a thread fica ociosa. No SDK 58, async routes são padrão na web; code splitting nativo de produção não está disponível | `use-dashboard.ts`, `use-transactions.ts` | Estratégias de dados implementadas; dashboard ainda lê todo o histórico em cache miss e código das rotas não é dividido no nativo |
+| Separação apresentação / domínio / infraestrutura | Interfaces `IAuthService`, `ITransactionService`; o serviço do dashboard recebe o repositório por factory, conectado em um ponto de composição. Outros hooks ainda usam o serviço Firebase concreto | `features/*/types/*.interface.ts`, `dashboard.service.ts`, `dashboard-service.instance.ts` | Separação prática implementada; inversão de dependências parcial |
+| Lazy loading / carregamento sob demanda | Paginação cursor-based (20 itens/vez), pré-carregamento em background da próxima página (`prefetchNext`), carregamento condicional por autenticação e totais históricos via agregações do Firestore. `requestIdleCallback` agenda o dashboard quando a thread fica ociosa. No SDK 58, async routes são padrão na web; code splitting nativo de produção não está disponível | `use-dashboard.ts`, `use-transactions.ts`, `firestore-transaction.service.ts` | Dados carregados sob demanda; agregações ainda percorrem entradas de índice e o bundle nativo não tem divisão por rota |
 | Cache para otimizar requisições | Cache in-memory no `dashboardService`, chave `userId:ano-mês`, TTL 5 min, invalidado em create/edit/delete/logout e por `useTransactionWatcher` | `dashboard-cache.ts`, `dashboard.service.ts` | Concluído |
 | Programação reativa | `onAuthStateChanged` (listener real do Auth); `useTransactionWatcher` com `onSnapshot` detecta criações, edições e exclusões do documento mais recente em tempo real (qualquer dispositivo), invalida cache e dispara refresh; exclusões de documentos não-topo são cobertas pelo `useFocusEffect`; `useFocusEffect` como recarga ao focar | `auth-provider.tsx`, `use-transaction-watcher.ts`, `transaction-list-screen.tsx` | Concluído (com limitação documentada no watcher) |
 | Autenticação segura | Firebase Auth, persistência AsyncStorage, erros mapeados, guard `isFirebaseConfigured()` | `firebase-auth.service.ts`, `auth-provider.tsx` | Concluído |

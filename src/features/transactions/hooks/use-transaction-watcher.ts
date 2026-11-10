@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 
 import app from '@/src/lib/firebase/config';
-import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard.service';
+import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard-service.instance';
 
 /**
  * Hook de programação reativa para transações.

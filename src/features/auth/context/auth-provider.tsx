@@ -11,7 +11,7 @@ import {
 } from '../utils/password-reset-diagnostics';
 import type { User } from '../types/user';
 import { AuthContext } from './auth-context';
-import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard.service';
+import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard-service.instance';
 
 interface AuthState {
   user: User | null;

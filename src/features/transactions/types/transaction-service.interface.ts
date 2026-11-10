@@ -8,6 +8,12 @@ import type { TransactionFilter } from './transaction-filter';
  * sem alterar nenhum hook consumidor.
  */
 export interface ITransactionService {
+  getLifetimeTotals(userId: string): Promise<{
+    income: number;
+    expense: number;
+    investment: number;
+  }>;
+
   getById(id: string, userId: string): Promise<Transaction | null>;
 
   getPage(

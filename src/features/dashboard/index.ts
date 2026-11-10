@@ -11,7 +11,7 @@ export {
 } from './utils/dashboard-calculators';
 
 // Serviço
-export { dashboardService } from './services/dashboard.service';
+export { dashboardService } from './services/dashboard-service.instance';
 
 // Hook
 export { useDashboard } from './hooks/use-dashboard';

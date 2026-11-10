@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, type ThemeColors } from '@/constants/theme';
 import { useAuth } from '@/src/features/auth';
-import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard.service';
+import { invalidateDashboard } from '@/src/features/dashboard/services/dashboard-service.instance';
 import { EmptyState } from '@/src/shared/components/empty-state';
 import { ErrorMessage } from '@/src/shared/components/error-message';
 import { LoadingSpinner } from '@/src/shared/components/loading-spinner';
