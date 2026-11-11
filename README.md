@@ -12,6 +12,24 @@ Repositório: [github.com/pos-projetos-thiago/tc-04](https://github.com/pos-proj
 
 O projeto dá continuidade ao app da Fase 3. Na Fase 4, a aplicação foi organizada por módulos, com serviços definidos por interfaces, cache para o dashboard, carregamento paginado e atualizações reativas. As regras de acesso do Firestore e do Storage estão versionadas junto ao código.
 
+## Início rápido
+
+Requisitos: Node.js compatível com o Expo SDK 58 (22.13+, 24.3+ ou 26+) e Expo Go no dispositivo. O computador e o dispositivo devem estar na mesma rede Wi-Fi.
+
+No Windows com NVM, selecione uma versão compatível antes de iniciar, por exemplo `nvm use 24.12.0`. Confirme com `node --version`.
+
+```bash
+npm install
+```
+
+Configure o Firebase e preencha o arquivo `.env` conforme a seção [Configuração do Firebase](#configuração-do-firebase). Em seguida, inicie o projeto:
+
+```bash
+npm start
+```
+
+Escaneie o QR code exibido no terminal usando o Expo Go.
+
 ---
 
 ## Funcionalidades
@@ -28,15 +46,6 @@ O projeto dá continuidade ao app da Fase 3. Na Fase 4, a aplicação foi organi
 - Upload de recibos para Firebase Storage
 - Extração de dados de documentos via IA (Firebase AI Logic / Gemini)
 - Tema claro e escuro (reage ao tema do sistema)
-
----
-
-## Pré-requisitos
-
-- **Node.js 22.13+ (linha 22), 24.3+ (linha 24) ou 26+**, conforme os requisitos do Expo SDK 58. Consulte a [tabela oficial de compatibilidade](https://docs.expo.dev/versions/v58.0.0/).
-- npm
-- Aplicativo **Expo Go** instalado no dispositivo (iOS ou Android)
-- Conta no [Firebase Console](https://console.firebase.google.com)
 
 ---
 
@@ -116,22 +125,9 @@ EXPO_PUBLIC_FIREBASE_APP_ID=...
 
 ---
 
-## Instalação
+## Conexão com o Expo Go
 
-```bash
-npm install
-```
-
-## Executando o projeto
-
-```bash
-npm start
-```
-
-Inicia o Metro em modo **LAN** (`--lan --clear`). Recomendado para dispositivos físicos na mesma rede Wi-Fi.
-
-> **No iOS, prefira LAN em vez de `--tunnel`**
-> O ATS do iOS bloqueia conexões HTTP geradas pelo modo tunnel com URLs `*.exp.direct`. Use LAN ou USB.
+`npm start` inicia o Metro em modo LAN, recomendado quando computador e dispositivo estão na mesma rede Wi-Fi. Se o QR code não conectar, confira a rede e permita o acesso do Node.js no firewall do computador.
 
 ### Modos disponíveis
 
@@ -325,11 +321,9 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | React Native Reanimated | 4.7.1 | Animações |
 | React Native Gesture Handler | ~3.3.0 | Gestos nativos |
 | React Native Worklets | 0.13.0 | Execução de worklets para animações |
-| React Native SVG | 15.16.0 | Renderização de SVG |
+| React Native SVG | 15.16.0 | Renderização dos gráficos donut e elementos vetoriais |
 | React Native Safe Area Context | ~5.11.0 | Áreas seguras em dispositivos |
 | React Native Screens | ~4.30.0 | Telas nativas para navegação |
-| @shopify/react-native-skia | 2.14.0 | Canvas para gráficos |
-| expo-skia-charts | ^0.5.0 | Gráficos donut |
 | @react-native-async-storage/async-storage | 2.2.0 | Persistência de sessão Firebase Auth |
 
 ---
@@ -341,11 +335,7 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Expo Doctor (`npx expo-doctor`) | 20/20 verificações passaram após o alinhamento do SDK 58 |
 | TypeScript (`npx tsc --noEmit`) | 0 erros após a migração para SDK 58 |
 | Lint (`npx expo lint`) | 0 erros, 0 warnings |
-| Expo Go em iPhone | Aplicativo abriu e foi testado após a migração para SDK 58 |
-| Build nativo | Não executado: requer EAS Build ou ambiente com Xcode/Android SDK |
-| Auditoria de dependências | Após atualizações compatíveis, `npm audit` reportou 12 moderados, 0 altos e 0 críticos; `npm audit --omit=dev` reportou 5 moderados, 0 altos e 0 críticos. Os moderados restantes vêm da cadeia de ferramentas do Expo SDK 58 e não foram forçados a uma versão antiga do Expo |
-
-> O teste no iPhone confirmou que o app abre no Expo Go. Um build nativo de produção ainda não foi gerado.
+| Expo Go em dispositivo iOS | Abertura do aplicativo validada após o alinhamento para o SDK 58 |
 
 ---
 
@@ -377,9 +367,9 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 | Cache para otimizar requisições | Cache in-memory no `dashboardService`, chave `userId:ano-mês`, TTL 5 min, invalidado em create/edit/delete/logout e por `useTransactionWatcher` | `dashboard-cache.ts`, `dashboard.service.ts` | Concluído |
 | Programação reativa | `onAuthStateChanged`; watcher chama o contrato do serviço, cuja implementação Firestore usa `onSnapshot` limitado ao documento mais recente. Invalida cache e recarrega a lista; alterações fora da consulta são atualizadas ao focar a tela | `auth-provider.tsx`, `use-transaction-watcher.ts`, `transaction-service.interface.ts`, `firestore-transaction.service.ts` | Implementado com consulta reativa de baixo escopo e atualização ao focar |
 | Autenticação segura | Firebase Auth, persistência AsyncStorage, erros mapeados, guard `isFirebaseConfigured()` | `firebase-auth.service.ts`, `auth-provider.tsx` | Concluído |
-| Isolamento de dados por usuário | Código das regras e serviços valida propriedade por `userId`; regras versionadas no repositório | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | Regras incluídas; conferir publicação no Firebase `tc03-fiap` |
-| Regras Firestore completas | Create/update validam allowlist de campos, tipos, limites, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | Regras incluídas; conferir publicação no Firebase `tc03-fiap` |
-| Regras Storage completas | `create`/`update` separados de `delete`; autenticação, ownership, limite de 10 MB e imagens/PDF/TXT | `storage.rules` | Regras incluídas; conferir publicação no Firebase `tc03-fiap` |
+| Isolamento de dados por usuário | Código das regras e serviços valida propriedade por `userId`; regras versionadas no repositório | `firestore.rules`, `storage.rules`, `firestore-transaction.service.ts` | Regras incluídas; conferir publicação no projeto Firebase configurado |
+| Regras Firestore completas | Create/update validam allowlist de campos, tipos, limites, `amount > 0`, `createdAt` imutável; delete somente dono | `firestore.rules` | Regras incluídas; conferir publicação no projeto Firebase configurado |
+| Regras Storage completas | `create`/`update` separados de `delete`; autenticação, ownership, limite de 10 MB e imagens/PDF/TXT | `storage.rules` | Regras incluídas; conferir publicação no projeto Firebase configurado |
 | Criptografia de dados sensíveis | Criptografia em repouso e em trânsito gerenciada pelo Firebase; acesso protegido por autenticação e regras por usuário | Firebase, `firestore.rules`, `storage.rules` | Atendido pela proteção criptográfica da plataforma |
 | Credenciais privadas fora do repositório | `.env` ignorado; não há chave de conta de serviço no código. A chave Firebase `EXPO_PUBLIC_*` é configuração de cliente, não segredo | `.gitignore`, `.env.example` | Concluído; restringir a chave no Google Cloud Console |
 | README com tecnologias e passo a passo | Este arquivo inclui tecnologias, configuração local e link do repositório | `README.md` | Concluído |
@@ -391,9 +381,5 @@ O runtime Hermes não implementa `AbortSignal.any()`, usado pelo Firebase AI Log
 
 | Etapa | Ação |
 |---|---|
-| Regras Firebase | Conferir no projeto `tc03-fiap` se Firestore e Storage estão usando as versões dos arquivos versionados neste repositório. Um commit Git não publica regras no Console. |
+| Regras Firebase | Conferir se Firestore e Storage estão usando as versões dos arquivos versionados neste repositório. Um commit Git não publica regras no Console. |
 | Demonstração | Gravar o vídeo de até cinco minutos usando o roteiro desta documentação. |
-
-### Endurecimento e publicação de produção
-
-Como próximos passos operacionais, podem ser avaliados a restrição de APIs e apps para a chave Firebase, o App Check para os serviços utilizados e a geração de um build de produção. A auditoria de dependências registrou avisos moderados na cadeia Expo; acompanhar atualizações compatíveis e evitar `npm audit fix --force`, que propõe versões incompatíveis com o SDK atual.

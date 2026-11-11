@@ -1,20 +1,47 @@
-import { DonutChart } from 'expo-skia-charts';
-import type { DonutChartConfig, ProcessedSegment } from 'expo-skia-charts';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Svg, { Circle, G } from 'react-native-svg';
 
 import { formatCurrency } from '@/src/shared/utils/format-currency';
 
 import type { ThemeColors } from './dashboard-palette';
 import { useDashboardColors } from './dashboard-palette';
 
+export interface ProcessedSegment {
+  label: string;
+  value: number;
+  percentage: number;
+  startAngle: number;
+  sweepAngle: number;
+  color: string;
+  index: number;
+}
+
+interface DonutChartDatum {
+  label: string;
+  value: number;
+}
+
+export interface DonutChartConfig {
+  data: DonutChartDatum[];
+  colors?: string[];
+  strokeWidth?: number;
+  gap?: number;
+  roundedCorners?: boolean;
+  centerValues?: {
+    enabled?: boolean;
+    renderContent?: (
+      segments: ProcessedSegment[],
+      total: number,
+      selectedSegment: ProcessedSegment | null,
+    ) => React.ReactNode;
+  };
+}
+
 export const DONUT_CHART_STYLE = {
   strokeWidth: 22,
   gap: 4,
   roundedCorners: true,
-  animationDuration: 600,
-  hitSlop: 100,
 } as const;
 
 interface ChartCenterContentProps {
@@ -74,21 +101,127 @@ export function ChartCenterContent({
 interface DashboardDonutChartProps {
   height: number;
   config: DonutChartConfig;
-  /**
-   * Legend rendered below the ring, outside the fixed-height canvas container.
-   * expo-skia-charts v0.5.0 computes canvasHeight = totalHeight - legendHeight,
-   * so keeping the legend external ensures the ring always fills the full height.
-   */
   legend?: React.ReactNode;
 }
 
 export function DashboardDonutChart({ height, config, legend }: DashboardDonutChartProps) {
+  const colors = useDashboardColors();
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const data = useMemo(
+    () => config.data.filter((item) => Number.isFinite(item.value) && item.value > 0),
+    [config.data],
+  );
+  const total = useMemo(() => data.reduce((sum, item) => sum + item.value, 0), [data]);
+  const chartSegments = useMemo<ProcessedSegment[]>(() => {
+    if (total <= 0) return [];
+
+    const gap = Math.max(0, config.gap ?? 0);
+    const availableAngle = Math.max(0, 360 - gap * data.length);
+    let currentAngle = -90;
+
+    return data.map((item, index) => {
+      const percentage = item.value / total;
+      const sweepAngle = percentage * availableAngle;
+      const segment: ProcessedSegment = {
+        ...item,
+        percentage,
+        startAngle: currentAngle,
+        sweepAngle,
+        color: config.colors?.[index % (config.colors.length || 1)] ?? colors.accent,
+        index,
+      };
+      currentAngle += sweepAngle + gap;
+      return segment;
+    });
+  }, [config.colors, config.gap, colors.accent, data, total]);
+
+  const diameter = Math.min(size.width, size.height);
+  const strokeWidth = config.strokeWidth ?? DONUT_CHART_STYLE.strokeWidth;
+  const radius = Math.max(1, diameter / 2 - strokeWidth / 2 - 10);
+  const circumference = 2 * Math.PI * radius;
+  const gapLength = (Math.max(0, config.gap ?? 0) / 360) * circumference;
+  const availableLength = Math.max(0, circumference - gapLength * chartSegments.length);
+  const selectedSegment =
+    selectedIndex === null ? null : chartSegments[selectedIndex] ?? null;
+
+  const circles = chartSegments.map((segment) => {
+    const segmentLength = availableLength * segment.percentage;
+    const precedingLength = chartSegments
+      .slice(0, segment.index)
+      .reduce(
+        (sum, precedingSegment) => sum + availableLength * precedingSegment.percentage + gapLength,
+        0,
+      );
+    const dashOffset = -precedingLength;
+
+    return (
+      <Circle
+        key={segment.label}
+        cx={size.width / 2}
+        cy={size.height / 2}
+        r={radius}
+        fill="none"
+        stroke={segment.color}
+        strokeWidth={strokeWidth}
+        strokeLinecap={config.roundedCorners ? 'round' : 'butt'}
+        strokeDasharray={[segmentLength, Math.max(0, circumference - segmentLength)]}
+        strokeDashoffset={dashOffset}
+        onPress={() =>
+          setSelectedIndex((current) => (current === segment.index ? null : segment.index))
+        }
+        accessibilityLabel={`${segment.label}, ${Math.round(segment.percentage * 100)}%`}
+      />
+    );
+  });
+
+  const centerContent = config.centerValues?.renderContent?.(
+    chartSegments,
+    total,
+    selectedSegment,
+  );
+
   return (
     <View style={{ width: '100%' }}>
-      <View style={{ width: '100%', height }}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <DonutChart config={config} />
-        </GestureHandlerRootView>
+      <View
+        style={{ width: '100%', height, alignItems: 'center', justifyContent: 'center' }}
+        onLayout={(event) => {
+          const { width, height: layoutHeight } = event.nativeEvent.layout;
+          setSize({ width, height: layoutHeight });
+        }}
+      >
+        {diameter > 0 && total > 0 ? (
+          <>
+            <Svg width={size.width} height={size.height}>
+              <Circle
+                cx={size.width / 2}
+                cy={size.height / 2}
+                r={radius}
+                fill="none"
+                stroke={colors.border}
+                strokeWidth={strokeWidth}
+              />
+              <G rotation={-90} originX={size.width / 2} originY={size.height / 2}>
+                {circles}
+              </G>
+            </Svg>
+            {config.centerValues?.enabled && centerContent ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  width: size.width,
+                  height: size.height,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {centerContent}
+              </View>
+            ) : null}
+          </>
+        ) : null}
       </View>
       {legend ?? null}
     </View>

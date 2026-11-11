@@ -1,4 +1,3 @@
-import type { ProcessedSegment } from 'expo-skia-charts';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -9,6 +8,7 @@ import {
   DashboardDonutChart,
   DONUT_CHART_STYLE,
   DonutChartLegend,
+  type ProcessedSegment,
   useDonutChartHeight,
 } from './donut-chart-ui';
 
@@ -116,15 +116,6 @@ export function MonthlyMovementChart({
         strokeWidth: DONUT_CHART_STYLE.strokeWidth,
         gap: DONUT_CHART_STYLE.gap,
         roundedCorners: DONUT_CHART_STYLE.roundedCorners,
-        animationDuration: DONUT_CHART_STYLE.animationDuration,
-        // Legend disabled inside the chart — rendered externally via the
-        // `legend` prop on DashboardDonutChart so it doesn't shrink the ring.
-        legend: { enabled: false },
-        hover: {
-          enabled: true,
-          animateOnHover: true,
-          hitSlop: DONUT_CHART_STYLE.hitSlop,
-        },
         centerValues: {
           enabled: true,
           renderContent: (
