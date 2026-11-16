@@ -10,8 +10,6 @@
 
 Aplicativo mobile de gerenciamento financeiro pessoal desenvolvido com React Native, Expo e Firebase para o Tech Challenge da Fase 4 da pós-graduação PosTech FIAP. O projeto evolui a aplicação desenvolvida na Fase 3.
 
-[Acessar o repositório no GitHub](https://github.com/pos-projetos-thiago/tc-04)
-
 ## Funcionalidades
 
 - Login, cadastro e recuperação de senha com Firebase Authentication.
